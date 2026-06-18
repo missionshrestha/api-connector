@@ -1,0 +1,54 @@
+# .github/workflows/frontend-ci.yml
+name: Frontend CI
+
+on:
+  push:
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-ci.yml"
+      - ".nvmrc"
+  pull_request:
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-ci.yml"
+      - ".nvmrc"
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    env:
+      VITE_API_BASE_URL: http://localhost:8000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Reads the Node version from .nvmrc — keeps CI and local in sync.
+          # Update .nvmrc to change the Node version for both environments.
+          node-version-file: ".nvmrc"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: npm-
+
+      - name: Install dependencies
+        # npm ci installs from package-lock.json exactly — deterministic builds.
+        # npm install may pick up newer patch versions, producing environment drift.
+        # If npm ci fails with "package.json and package-lock.json out of sync":
+        # run "npm install" locally with the correct Node version, commit the
+        # regenerated package-lock.json, then push again.
+        run: npm ci --prefix frontend
+
+      - name: Type check
+        # Type errors surface first — cheapest to diagnose, often cause test failures
+        run: npm run typecheck --prefix frontend
+
+      - name: Lint
+        run: npm run lint --prefix frontend
+
+      - name: Test
+        run: npm test --prefix frontend
