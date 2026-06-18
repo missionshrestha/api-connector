@@ -1,0 +1,30 @@
+# ─── Python ──────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+dist/
+*.egg
+.eggs/
+
+# ─── Environment files ────────
+backend/.env
+frontend/.env
+frontend/.env.*.local
+
+# ─── Node ────────────────────────────────────────────────────
+node_modules/
+frontend/dist/
+.vite/
+
+# ─── OS ──────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── IDE ─────────────────────────────────────────────────────
+.vscode/settings.json
+.idea/
+*.swp
