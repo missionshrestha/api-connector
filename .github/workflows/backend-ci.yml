@@ -1,0 +1,79 @@
+# .github/workflows/backend-ci.yml
+name: Backend CI
+
+on:
+  push:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd "pg_isready"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      DATABASE_URL: postgres://test_user:test_password@localhost:5432/test_db
+      # Static non-secret string for CI only. Not used to sign production data.
+      # A hardcoded CI-only secret key is intentional and not a security issue.
+      DJANGO_SECRET_KEY: ci-only-not-a-real-secret
+      DEBUG: "False"
+      ALLOWED_HOSTS: localhost
+      # CI_ENCRYPTION_KEY must be set as a GitHub Actions repository secret:
+      # Settings → Secrets and variables → Actions → New repository secret
+      # Name: CI_ENCRYPTION_KEY
+      # Value: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+      #
+      # Phase 0 tests pass without this secret (no EncryptionService usage yet).
+      # It MUST be set before Phase 1 EncryptionService tests run.
+      ENCRYPTION_KEY: ${{ secrets.CI_ENCRYPTION_KEY }}
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
+      SECURE_SSL_REDIRECT: "False"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ hashFiles('backend/requirements-dev.txt') }}
+          restore-keys: pip-
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r backend/requirements-dev.txt
+
+      - name: Lint (ruff check)
+        working-directory: backend
+        run: ruff check .
+
+      - name: Format check (ruff format)
+        working-directory: backend
+        run: ruff format --check .
+
+      - name: Run tests
+        working-directory: backend
+        run: pytest --tb=short
