@@ -1,0 +1,27 @@
+# backend/pyproject.toml
+# Tooling configuration only — this project is not a pip package (no [project] table).
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "C4", "RUF"]
+# E/W: pycodestyle  F: pyflakes  I: isort  N: pep8-naming
+# UP: pyupgrade  B: bugbear  SIM: simplify  C4: comprehensions  RUF: ruff-native
+ignore = ["E501"]  # Line length enforced by formatter, not linter
+
+[tool.ruff.lint.isort]
+known-first-party = ["api_connector", "config"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+testpaths = ["tests", "api_connector"]
+addopts = "--tb=short --strict-markers"
