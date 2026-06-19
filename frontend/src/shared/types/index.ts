@@ -1,3 +1,3 @@
 // frontend/src/shared/types/index.ts
-// Phase 1: Define APIError TypeScript type here.
-// Phase 1: Define PaginatedResponse<T> type here.
+export * from "./domain";
+export * from "./api"; // Created in P1.H-02

@@ -103,8 +103,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PARSER_CLASSES": [
         "rest_framework.parsers.JSONParser",
     ],
-    # TODO Phase 1: set to 'api_connector.exceptions.custom_exception_handler'
-    # "EXCEPTION_HANDLER": "api_connector.exceptions.custom_exception_handler",
+    "EXCEPTION_HANDLER": "api_connector.exceptions.custom_exception_handler",
 }
 
 # ─── Encryption ───────────────────────────────────────────────────────────────
