@@ -43,6 +43,7 @@ apiClient.interceptors.response.use(
 
     // Development-only logging for unexpected non-APIError responses
     if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
       console.error("[api-client] Unexpected non-APIError response:", error);
     }
 
