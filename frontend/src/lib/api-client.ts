@@ -41,12 +41,6 @@ apiClient.interceptors.response.use(
       return Promise.reject(axiosError.response.data);
     }
 
-    // Development-only logging for unexpected non-APIError responses
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.error("[api-client] Unexpected non-APIError response:", error);
-    }
-
     // Network error, timeout, or malformed response — return synthetic APIError
     return Promise.reject({
       error_code: ErrorCode.UNEXPECTED_ERROR,
