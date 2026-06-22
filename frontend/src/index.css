@@ -1,10 +1,10 @@
 /* frontend/src/index.css */
+@import "@fontsource-variable/geist";
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import "@fontsource-variable/geist";
 
 @layer base {
   .theme {

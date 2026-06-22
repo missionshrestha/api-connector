@@ -1,13 +1,20 @@
 # backend/api_connector/urls.py
-from django.urls import path
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
 
+from api_connector.views.connection_profile import ConnectionProfileViewSet
 from api_connector.views.health import health_check
 
-# app_name MUST be declared before any reverse() call references this namespace.
-# All Phase 2+ reverse() calls use the 'api_connector:' prefix.
+# URL structure: /api/connector/profiles/
+# ADR-008: namespaced under 'connector' to prevent clashes with host platform routes.
+# Phase 3 adds: POST /api/connector/profiles/{id}/test/
+# Phase 5 adds: GET/POST /api/connector/profiles/{id}/endpoints/
 app_name = "api_connector"
+
+router = DefaultRouter()
+router.register(r"connector/profiles", ConnectionProfileViewSet, basename="profile")
 
 urlpatterns = [
     path("health/", health_check, name="health-check"),
-    # Phase 2: path('connector/profiles/', include('api_connector.profiles_urls'))
+    path("", include(router.urls)),
 ]

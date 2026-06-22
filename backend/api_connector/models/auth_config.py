@@ -24,6 +24,10 @@ class AuthConfig(models.Model):
     )
     # Stores {"blob": "<fernet-ciphertext>"} — never access directly outside EncryptionService.
     encrypted_credentials = models.JSONField(default=dict, blank=True)
+    # Stores {"field_name": {"is_set": bool}} — computed at write time, never decrypted.
+    # This field is PUBLIC METADATA — no encryption needed. Treat as safe to read.
+    # Never store credential values here — only field names and boolean presence flags.
+    credentials_summary = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
