@@ -18,7 +18,7 @@ from cryptography.fernet import InvalidToken
 from django.db import transaction
 from rest_framework import serializers
 
-from api_connector.models import AuthConfig, AuthType, ConnectionProfile
+from api_connector.models import AuthConfig, AuthType, ConnectionProfile, TokenType
 from api_connector.serializers.auth_config import (
     CREDENTIAL_SERIALIZER_MAP,
     compute_credentials_summary,
@@ -39,6 +39,7 @@ class ConnectionProfileReadSerializer(serializers.ModelSerializer):
     """
 
     credentials_summary = serializers.SerializerMethodField()
+    oauth_ac_authorized = serializers.SerializerMethodField()
 
     def get_credentials_summary(self, obj) -> dict:
         """
@@ -50,6 +51,27 @@ class ConnectionProfileReadSerializer(serializers.ModelSerializer):
             return obj.auth_config.credentials_summary
         except AuthConfig.DoesNotExist:
             return {}
+
+    def get_oauth_ac_authorized(self, obj) -> bool | None:
+        """
+        Returns authorization status for OAuth AC profiles only.
+        null for all non-OAuth-AC auth types.
+
+        Uses prefetched oauth_tokens to avoid N+1 queries.
+        Does NOT attempt token refresh — only reads DB state.
+        A profile is "authorized" when it has an OAuthToken with a non-null
+        encrypted_refresh_token (meaning a full token exchange has occurred
+        and we can silently refresh the access token).
+        """
+        if obj.auth_type != AuthType.OAUTH_AC:
+            return None
+        # obj.oauth_tokens.all() uses prefetched data — no additional query
+        ac_tokens = [
+            t for t in obj.oauth_tokens.all() if t.token_type == TokenType.OAUTH_AC
+        ]
+        if not ac_tokens:
+            return False
+        return bool(ac_tokens[0].encrypted_refresh_token)
 
     class Meta:
         model = ConnectionProfile
@@ -67,6 +89,7 @@ class ConnectionProfileReadSerializer(serializers.ModelSerializer):
             "last_test_response_time",
             "last_test_detected_format",
             "credentials_summary",
+            "oauth_ac_authorized",
             "created_at",
             "updated_at",
         ]

@@ -114,5 +114,14 @@ ENCRYPTION_KEY = env("ENCRYPTION_KEY", default="")
 # ─── HTTPS ────────────────────────────────────────────────────────────────────
 SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=False)
 
+# OAuth 2.0 Authorization Code redirect URI.
+# Must exactly match the URI registered in each provider's OAuth application settings.
+# Local dev: http://localhost:8000/api/connector/oauth/callback/
+# Override per environment — never hardcode the production URL here.
+OAUTH_REDIRECT_URI = env(
+    "OAUTH_REDIRECT_URI",
+    default="http://localhost:8000/api/connector/oauth/callback/",
+)
+
 # ─── Logging ──────────────────────────────────────────────────────────────────
 # TODO Phase 1: configure structured logging with method/url/status/latency fields

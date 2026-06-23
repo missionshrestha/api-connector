@@ -81,6 +81,13 @@ STEP_ERROR_MESSAGES: dict[tuple[str, str], StepErrorMessage] = {
             "OAuth consent flow in your browser before testing the connection."
         ),
     ),
+    ("auth_injection", "oauth_ac_reauthorization_required"): StepErrorMessage(
+        message="OAuth authorization has expired or was revoked.",
+        suggested_action=(
+            "Use the 'Authorize' button on the profile form to re-authorize "
+            "via your browser. You may need to accept the permissions prompt again."
+        ),
+    ),
     ("auth_injection", "oauth_cc_token_fetch_failed"): StepErrorMessage(
         message="Could not fetch an OAuth access token from the token endpoint.",
         suggested_action=(

@@ -1,5 +1,12 @@
 # backend/tests/factories.py
+import base64
+import hashlib
+import secrets
+import uuid
+from datetime import timedelta
+
 import factory
+from django.utils import timezone
 from factory.django import DjangoModelFactory
 
 from api_connector.models import (
@@ -10,6 +17,7 @@ from api_connector.models import (
     Endpoint,
     HTTPMethod,
     InferredType,
+    OAuthACState,
     OAuthToken,
     PaginationConfig,
     PaginationStrategy,
@@ -147,3 +155,25 @@ class ConnectionTestResultFactory(DjangoModelFactory):
     overall_passed = True
     test_path = None
     duration_ms = 138
+
+
+class OAuthACStateFactory(DjangoModelFactory):
+    class Meta:
+        model = OAuthACState
+
+    connection_profile = factory.SubFactory(ConnectionProfileFactory)
+    state = factory.LazyAttribute(lambda _: str(uuid.uuid4()))
+    # Generate a valid PKCE pair
+    pkce_code_verifier = factory.LazyAttribute(lambda _: secrets.token_urlsafe(96))
+    pkce_code_challenge = factory.LazyAttribute(
+        lambda obj: (
+            base64.urlsafe_b64encode(
+                hashlib.sha256(obj.pkce_code_verifier.encode("ascii")).digest()
+            )
+            .rstrip(b"=")
+            .decode("ascii")
+        )
+    )
+    redirect_origin = "http://localhost:5173"
+    expires_at = factory.LazyAttribute(lambda _: timezone.now() + timedelta(minutes=10))
+    used = False

@@ -254,25 +254,81 @@ class ConnectionTestService:
         start = time.monotonic()
         auth_type = profile.auth_type
 
-        # OAuth AC — requires browser flow, not an error, just expected limitation
+        # OAuth AC — attempt real token retrieval; only fail if no stored token
+        # or refresh fails (user must re-authorize in that case)
         if auth_type == AuthType.OAUTH_AC:
+            from api_connector.services.oauth_ac_exceptions import (
+                REASON_NO_TOKEN,
+                OAuthACReauthorizationRequired,
+            )
+            from api_connector.services.oauth_ac_token import OAuthACTokenService
+
+            # Decrypt credentials to pass to token service (needed for refresh)
+            try:
+                decrypted_ac = encryption_service.decrypt_to_dict(
+                    auth_config.encrypted_credentials
+                )
+            except InvalidToken:
+                duration_ms = int((time.monotonic() - start) * 1000)
+                error_msg = STEP_ERROR_MESSAGES[
+                    ("auth_injection", "credentials_corrupt")
+                ]
+                return (
+                    StepResult(
+                        name=AUTH_INJECTION,
+                        passed=False,
+                        message=error_msg.message,
+                        detail={
+                            "auth_type": auth_type,
+                            "reason": "credentials_corrupt",
+                            "suggested_action": error_msg.suggested_action,
+                        },
+                        duration_ms=duration_ms,
+                    ),
+                    {},
+                )
+
+            credentials_ac = {**decrypted_ac, "_profile_id": profile.pk}
+            try:
+                OAuthACTokenService().get_access_token(profile.pk, credentials_ac)
+            except OAuthACReauthorizationRequired as exc:
+                duration_ms = int((time.monotonic() - start) * 1000)
+                # Distinguish "never authorized" from "expired/revoked"
+                if exc.reason == REASON_NO_TOKEN:
+                    error_msg = STEP_ERROR_MESSAGES[
+                        ("auth_injection", "oauth_ac_browser_required")
+                    ]
+                else:
+                    error_msg = STEP_ERROR_MESSAGES[
+                        ("auth_injection", "oauth_ac_reauthorization_required")
+                    ]
+                return (
+                    StepResult(
+                        name=AUTH_INJECTION,
+                        passed=False,
+                        message=error_msg.message,
+                        detail={
+                            "auth_type": auth_type,
+                            "reason": exc.reason,
+                            "suggested_action": error_msg.suggested_action,
+                        },
+                        duration_ms=duration_ms,
+                    ),
+                    {},
+                )
+
             duration_ms = int((time.monotonic() - start) * 1000)
-            error_msg = STEP_ERROR_MESSAGES[
-                ("auth_injection", "oauth_ac_browser_required")
-            ]
             return (
                 StepResult(
                     name=AUTH_INJECTION,
-                    passed=False,
-                    message=error_msg.message,
-                    detail={
-                        "auth_type": auth_type,
-                        "reason": "browser_flow_required",
-                        "suggested_action": error_msg.suggested_action,
-                    },
+                    passed=True,
+                    message=AUTH_SUCCESS_MSG.format(
+                        auth_type="oauth_ac (token retrieved)"
+                    ),
+                    detail={"auth_type": auth_type, "credentials_present": True},
                     duration_ms=duration_ms,
                 ),
-                {},
+                credentials_ac,
             )
 
         # No auth required — trivially passes
@@ -403,7 +459,7 @@ class ConnectionTestService:
                 for h in (profile.default_headers or [])
                 if h.get("name") and h.get("value")
             }
-            
+
             request = httpx.Request("GET", test_url, headers=base_headers)
             auth_request = handler.prepare_request(request, credentials)
 

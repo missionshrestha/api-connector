@@ -8,3 +8,4 @@ export * from "./SecretField";
 export * from "./StepResultItem";
 export * from "./ConnectionTestPanel";
 export * from "./ConnectionTestModal";
+export * from "./OAuthACStatusBadge";

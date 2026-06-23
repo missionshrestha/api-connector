@@ -49,12 +49,13 @@ export interface ConnectionProfile {
   default_headers: Array<{ name: string; value: string }>;
   ssl_verify: boolean;
   request_timeout: number;
-  last_test_at: string | null; // ISO datetime string
-  last_test_outcome: boolean | null; // null = never tested
+  last_test_at: string | null;
+  last_test_outcome: boolean | null;
   last_test_status_code: number | null;
   last_test_response_time: number | null;
   last_test_detected_format: string | null;
-  credentials_summary: CredentialsSummary | null; // Phase 2 read shape
+  credentials_summary: CredentialsSummary | null;
+  oauth_ac_authorized: boolean | null; // null for non-OAuth-AC profiles  ← ADD THIS
   created_at: string;
   updated_at: string;
 }

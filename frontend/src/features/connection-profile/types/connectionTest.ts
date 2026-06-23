@@ -41,3 +41,23 @@ export interface ConnectionTestResult {
   duration_ms: number;
   steps: TestStepResult[];
 }
+
+// ── OAuth AC postMessage event types ──────────────────────────────────────────
+
+export interface OAuthACSuccessEvent {
+  type: "OAUTH_AC_SUCCESS";
+  profileId: number;
+}
+
+export interface OAuthACErrorEvent {
+  type: "OAUTH_AC_ERROR";
+  message: string;
+}
+
+export type OAuthACMessageEvent = OAuthACSuccessEvent | OAuthACErrorEvent;
+
+export type OAuthACStatus =
+  | "unauthorized"   // No token in DB; Authorize button visible
+  | "authorizing"    // Popup open, waiting for postMessage
+  | "authorized"     // Token in DB and not expired; "Authorized ✓" badge shown
+  | "expired";       // Token expired and refresh failed; re-authorize prompt

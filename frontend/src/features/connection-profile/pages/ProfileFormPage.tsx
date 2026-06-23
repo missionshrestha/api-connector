@@ -227,6 +227,8 @@ export default function ProfileFormPage() {
               credentialsSummary={profile?.credentials_summary ?? null}
               control={control}
               errors={errors}
+              oauthAcAuthorized={profile?.oauth_ac_authorized ?? null}
+              profileId={profileId}                                        
             />
           )}
         </section>

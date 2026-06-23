@@ -166,9 +166,10 @@ def test_oauth_cc_raises_value_error_without_profile_id():
         OAuthCCAuthHandler().prepare_request(request, {})
 
 
-def test_oauth_ac_stub_raises_not_implemented():
+def test_oauth_ac_raises_value_error_without_profile_id():
+    """Stub replaced in Phase 4 — now raises ValueError when _profile_id is missing."""
     request = make_request()
-    with pytest.raises(NotImplementedError, match="Phase 4"):
+    with pytest.raises(ValueError, match="_profile_id"):
         OAuthACAuthHandler().prepare_request(request, {})
 
 
