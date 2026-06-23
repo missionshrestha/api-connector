@@ -398,7 +398,13 @@ class ConnectionTestService:
 
         try:
             handler = auth_handler_registry.get(profile.auth_type)
-            request = httpx.Request("GET", test_url)
+            base_headers = {
+                h["name"]: h["value"]
+                for h in (profile.default_headers or [])
+                if h.get("name") and h.get("value")
+            }
+            
+            request = httpx.Request("GET", test_url, headers=base_headers)
             auth_request = handler.prepare_request(request, credentials)
 
             with httpx.Client(
