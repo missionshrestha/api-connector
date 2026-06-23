@@ -11,7 +11,7 @@ Security contract (OWASP A07 — CSRF):
   - OAuthACState.used is set to True BEFORE the token exchange to prevent
     concurrent replay of the same authorization code.
   - The authorization code is never logged.
-  - postMessage is sent to redirect_origin (not '*').
+  - postMessage is sent to redirect_origin (never wildcard).
 
 Failure handling:
   - State not found: returns generic HTML error page (no postMessage — no
