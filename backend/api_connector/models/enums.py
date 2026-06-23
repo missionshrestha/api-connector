@@ -41,3 +41,8 @@ class ArrayHandling(models.TextChoices):
 class HTTPMethod(models.TextChoices):
     GET = "GET", "GET"
     POST = "POST", "POST"
+
+
+class TokenType(models.TextChoices):
+    OAUTH_CC = "oauth_cc", "OAuth Client Credentials"
+    OAUTH_AC = "oauth_ac", "OAuth Authorization Code"

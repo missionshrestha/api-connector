@@ -9,7 +9,9 @@ from api_connector.models.enums import (
     HTTPMethod,
     InferredType,
     PaginationStrategy,
+    TokenType,
 )
+from api_connector.models.oauth_token import OAuthToken
 from api_connector.models.pagination_config import PaginationConfig
 from api_connector.models.schema_field import SchemaField
 
@@ -22,7 +24,9 @@ __all__ = [
     "Endpoint",
     "HTTPMethod",
     "InferredType",
+    "OAuthToken",
     "PaginationConfig",
     "PaginationStrategy",
     "SchemaField",
+    "TokenType",
 ]

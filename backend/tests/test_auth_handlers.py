@@ -159,9 +159,10 @@ def test_basic_auth_special_chars_in_username():
 # ── OAuth Stubs ───────────────────────────────────────────────────────────────
 
 
-def test_oauth_cc_stub_raises_not_implemented():
+def test_oauth_cc_raises_value_error_without_profile_id():
+    """Stub replaced in Phase 3. Now raises ValueError when _profile_id is missing."""
     request = make_request()
-    with pytest.raises(NotImplementedError, match="Phase 3"):
+    with pytest.raises(ValueError, match="_profile_id"):
         OAuthCCAuthHandler().prepare_request(request, {})
 
 

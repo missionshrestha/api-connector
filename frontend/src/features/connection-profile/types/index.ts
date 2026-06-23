@@ -1,5 +1,6 @@
 // frontend/src/features/connection-profile/types/index.ts
 export * from "./requests";
+export * from "./connectionTest";
 
 // Auth field component props — shared interface for all 6 auth type field groups
 import type { Control, FieldErrors } from "react-hook-form";

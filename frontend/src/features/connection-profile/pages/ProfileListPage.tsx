@@ -87,7 +87,6 @@ export default function ProfileListPage() {
               key={profile.id}
               profile={profile}
               onDelete={() => setDeletingProfileId(profile.id)}
-              onReTest={() => {/* Phase 3 */}}
             />
           ))}
         </div>
