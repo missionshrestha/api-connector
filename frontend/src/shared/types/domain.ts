@@ -93,16 +93,16 @@ export interface PaginationConfig {
 
 export interface SchemaField {
   id: number;
-  endpoint: number; // FK id
+  endpoint: number;
   key_path: string;
   alias: string | null;
   inferred_type: InferredType;
   type_override: InferredType | null;
   include: boolean;
   array_handling: ArrayHandling | null;
-  null_percentage: number;
-  sample_value: unknown;
-  stale: boolean;
+  null_percentage: number;    // 0.0–1.0
+  sample_value: unknown;      // unknown (not any) — caller must narrow before use
+  stale: boolean;             // true = path absent from latest inference sample
   created_at: string;
   updated_at: string;
 }
