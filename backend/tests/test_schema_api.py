@@ -3,11 +3,13 @@
 Schema field management API integration tests.
 SchemaInferenceEngine.infer() and upsert_fields() mocked in infer action tests.
 """
+
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from api_connector.models import SchemaField
+from api_connector.services.encryption import encryption_service
 from api_connector.services.schema_inference.types import (
     SchemaFieldSpec,
     SchemaInferenceNoRecordsError,
@@ -18,7 +20,6 @@ from tests.factories import (
     EndpointFactory,
     SchemaFieldFactory,
 )
-from api_connector.services.encryption import encryption_service
 
 BASE = "/api/connector/profiles/{ppk}/endpoints/{epk}/"
 INFER_URL = BASE + "schema/infer/"
@@ -39,20 +40,28 @@ def make_profile_endpoint():
 
 # ── URL resolution ────────────────────────────────────────────────────────────
 
+
 def test_schema_infer_url_resolves():
     from django.urls import reverse
-    url = reverse("api_connector:endpoint-schema-infer", kwargs={"profile_pk": 1, "pk": 1})
+
+    url = reverse(
+        "api_connector:endpoint-schema-infer", kwargs={"profile_pk": 1, "pk": 1}
+    )
     assert url == "/api/connector/profiles/1/endpoints/1/schema/infer/"
 
 
 def test_schema_fields_url_resolves():
     from django.urls import reverse
-    url = reverse("api_connector:endpoint-schema-fields", kwargs={"profile_pk": 1, "pk": 1})
+
+    url = reverse(
+        "api_connector:endpoint-schema-fields", kwargs={"profile_pk": 1, "pk": 1}
+    )
     assert url == "/api/connector/profiles/1/endpoints/1/schema/fields/"
 
 
 def test_schema_field_update_url_resolves():
     from django.urls import reverse
+
     url = reverse(
         "api_connector:endpoint-schema-field-update",
         kwargs={"profile_pk": 1, "pk": 1, "field_pk": 5},
@@ -62,18 +71,25 @@ def test_schema_field_update_url_resolves():
 
 def test_schema_fields_bulk_update_url_resolves():
     from django.urls import reverse
-    url = reverse("api_connector:endpoint-schema-fields-bulk-update", kwargs={"profile_pk": 1, "pk": 1})
+
+    url = reverse(
+        "api_connector:endpoint-schema-fields-bulk-update",
+        kwargs={"profile_pk": 1, "pk": 1},
+    )
     assert url == "/api/connector/profiles/1/endpoints/1/schema/fields/bulk-update/"
 
 
 # ── schema_infer action ───────────────────────────────────────────────────────
+
 
 @pytest.mark.django_db
 class TestSchemaInferAction:
     def _mock_engine(self, endpoint, fields):
         """Returns a patcher that mocks SchemaInferenceEngine with preset results."""
         specs = [
-            SchemaFieldSpec(sf.key_path, sf.inferred_type, sf.null_percentage, sf.sample_value)
+            SchemaFieldSpec(
+                sf.key_path, sf.inferred_type, sf.null_percentage, sf.sample_value
+            )
             for sf in fields
         ]
         mock_engine = MagicMock()
@@ -84,9 +100,13 @@ class TestSchemaInferAction:
             return_value=mock_engine,
         )
 
-    def test_happy_path_returns_200_with_field_list(self, api_client, assert_no_credential_leak):
+    def test_happy_path_returns_200_with_field_list(
+        self, api_client, assert_no_credential_leak
+    ):
         profile, endpoint = make_profile_endpoint()
-        sf = SchemaFieldFactory(endpoint=endpoint, key_path="id", inferred_type="integer")
+        sf = SchemaFieldFactory(
+            endpoint=endpoint, key_path="id", inferred_type="integer"
+        )
 
         with self._mock_engine(endpoint, [sf]):
             response = api_client.post(
@@ -105,7 +125,10 @@ class TestSchemaInferAction:
 
         mock_engine = MagicMock()
         mock_engine.infer.side_effect = SchemaInferenceNoRecordsError("No records")
-        with patch("api_connector.views.endpoint.SchemaInferenceEngine", return_value=mock_engine):
+        with patch(
+            "api_connector.views.endpoint.SchemaInferenceEngine",
+            return_value=mock_engine,
+        ):
             response = api_client.post(
                 INFER_URL.format(ppk=profile.pk, epk=endpoint.pk),
                 data={},
@@ -116,7 +139,9 @@ class TestSchemaInferAction:
         assert response.data["error_code"] == "API_CONN_051"
         assert_no_credential_leak(response)
 
-    def test_nonexistent_endpoint_returns_404(self, api_client, assert_no_credential_leak):
+    def test_nonexistent_endpoint_returns_404(
+        self, api_client, assert_no_credential_leak
+    ):
         profile, _ = make_profile_endpoint()
         response = api_client.post(
             INFER_URL.format(ppk=profile.pk, epk=99999),
@@ -129,6 +154,7 @@ class TestSchemaInferAction:
 
 # ── schema_fields action ──────────────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 class TestSchemaFieldsAction:
     def test_empty_returns_200_empty_list(self, api_client, assert_no_credential_leak):
@@ -138,7 +164,9 @@ class TestSchemaFieldsAction:
         assert response.data == []
         assert_no_credential_leak(response)
 
-    def test_returns_fields_ordered_by_key_path(self, api_client, assert_no_credential_leak):
+    def test_returns_fields_ordered_by_key_path(
+        self, api_client, assert_no_credential_leak
+    ):
         profile, endpoint = make_profile_endpoint()
         SchemaFieldFactory(endpoint=endpoint, key_path="z_last")
         SchemaFieldFactory(endpoint=endpoint, key_path="a_first")
@@ -161,9 +189,12 @@ class TestSchemaFieldsAction:
 
 # ── schema_field_update action ─────────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 class TestSchemaFieldUpdateAction:
-    def test_update_include_false_returns_200(self, api_client, assert_no_credential_leak):
+    def test_update_include_false_returns_200(
+        self, api_client, assert_no_credential_leak
+    ):
         profile, endpoint = make_profile_endpoint()
         sf = SchemaFieldFactory(endpoint=endpoint, key_path="id", include=True)
         response = api_client.patch(
@@ -202,10 +233,15 @@ class TestSchemaFieldUpdateAction:
         assert response.data["error_code"] == "API_CONN_054"
         assert_no_credential_leak(response)
 
-    def test_cross_endpoint_update_returns_404(self, api_client, assert_no_credential_leak):
+    def test_cross_endpoint_update_returns_404(
+        self, api_client, assert_no_credential_leak
+    ):
         """SECURITY: field from endpoint B cannot be updated via endpoint A's URL."""
         profile = ConnectionProfileFactory(auth_type="none")
-        AuthConfigFactory(connection_profile=profile, encrypted_credentials=encryption_service.encrypt_dict({}))
+        AuthConfigFactory(
+            connection_profile=profile,
+            encrypted_credentials=encryption_service.encrypt_dict({}),
+        )
         ep_a = EndpointFactory(connection_profile=profile, name="A", path="/a")
         ep_b = EndpointFactory(connection_profile=profile, name="B", path="/b")
         sf_b = SchemaFieldFactory(endpoint=ep_b, key_path="id")
@@ -236,6 +272,7 @@ class TestSchemaFieldUpdateAction:
 
 
 # ── schema_fields_bulk_update action ─────────────────────────────────────────
+
 
 @pytest.mark.django_db
 class TestBulkUpdateAction:
@@ -280,7 +317,10 @@ class TestBulkUpdateAction:
     def test_field_ids_from_other_endpoint_not_updated(self, api_client):
         """Security: field_ids filtered by endpoint — other endpoint's fields untouched."""
         profile = ConnectionProfileFactory(auth_type="none")
-        AuthConfigFactory(connection_profile=profile, encrypted_credentials=encryption_service.encrypt_dict({}))
+        AuthConfigFactory(
+            connection_profile=profile,
+            encrypted_credentials=encryption_service.encrypt_dict({}),
+        )
         ep_a = EndpointFactory(connection_profile=profile, name="A", path="/a")
         ep_b = EndpointFactory(connection_profile=profile, name="B", path="/b")
         sf_b = SchemaFieldFactory(endpoint=ep_b, key_path="id", include=True)

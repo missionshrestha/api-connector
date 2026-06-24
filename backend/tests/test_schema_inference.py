@@ -5,6 +5,7 @@ Schema inference engine unit and DB tests.
 Pure logic tests (walker, type inference) use no DB.
 _fetch_sample() is mocked in orchestration tests — no real HTTP calls.
 """
+
 from unittest.mock import patch
 
 import pytest
@@ -26,8 +27,8 @@ from tests.factories import (
     SchemaFieldFactory,
 )
 
-
 # ─── Walker tests (no DB) ──────────────────────────────────────────────────────
+
 
 class TestWalkRecord:
     engine = SchemaInferenceEngine()
@@ -60,9 +61,7 @@ class TestWalkRecord:
         assert result == {"email": None}
 
     def test_deeply_nested_path(self):
-        result = self.engine._walk_record(
-            {"a": {"b": {"c": {"d": 42}}}}, "", 0
-        )
+        result = self.engine._walk_record({"a": {"b": {"c": {"d": 42}}}}, "", 0)
         assert result["a.b.c.d"] == 42
 
     def test_depth_cap_stops_recursion(self):
@@ -89,15 +88,24 @@ class TestWalkRecord:
 
 # ─── Type inference tests (no DB) ─────────────────────────────────────────────
 
+
 class TestInferTypeFromValues:
     def test_empty_returns_null(self):
         assert _infer_type_from_values([]) == "null"
 
     def test_all_aoo_sentinels(self):
-        assert _infer_type_from_values([ARRAY_OF_OBJECTS_SENTINEL, ARRAY_OF_OBJECTS_SENTINEL]) == "array_of_objects"
+        assert (
+            _infer_type_from_values(
+                [ARRAY_OF_OBJECTS_SENTINEL, ARRAY_OF_OBJECTS_SENTINEL]
+            )
+            == "array_of_objects"
+        )
 
     def test_all_aop_sentinels(self):
-        assert _infer_type_from_values([ARRAY_OF_PRIMITIVES_SENTINEL]) == "array_of_primitives"
+        assert (
+            _infer_type_from_values([ARRAY_OF_PRIMITIVES_SENTINEL])
+            == "array_of_primitives"
+        )
 
     def test_boolean_pure_true_false(self):
         assert _infer_type_from_values([True, False, True]) == "boolean"
@@ -124,7 +132,10 @@ class TestInferTypeFromValues:
         assert _infer_type_from_values([0.0, 1.0]) == "float"
 
     def test_datetime_detected(self):
-        assert _infer_type_from_values(["2024-01-15T10:30:00Z", "2024-06-01T00:00:00"]) == "datetime"
+        assert (
+            _infer_type_from_values(["2024-01-15T10:30:00Z", "2024-06-01T00:00:00"])
+            == "datetime"
+        )
 
     def test_date_detected(self):
         assert _infer_type_from_values(["2024-01-15", "2023-12-31"]) == "date"
@@ -148,15 +159,16 @@ class TestInferTypeFromValues:
 
 # ─── infer() orchestration tests (mocked _fetch_sample) ──────────────────────
 
+
 class TestSchemaInferenceEngineInfer:
     def test_correct_null_percentage_for_absent_path(self):
         """Field present in 3 of 5 records → null_percentage = 0.4 (2 absent)."""
         records = [
             {"id": 1, "name": "A"},
-            {"id": 2},               # name absent
+            {"id": 2},  # name absent
             {"id": 3, "name": "C"},
             {"id": 4, "name": "D"},
-            {"id": 5},               # name absent
+            {"id": 5},  # name absent
         ]
         engine = SchemaInferenceEngine()
         with patch.object(engine, "_fetch_sample", return_value=records):
@@ -183,9 +195,11 @@ class TestSchemaInferenceEngineInfer:
 
     def test_empty_records_raises_no_records_error(self):
         engine = SchemaInferenceEngine()
-        with patch.object(engine, "_fetch_sample", return_value=[]):
-            with pytest.raises(SchemaInferenceNoRecordsError):
-                engine.infer(None, None, {})
+        with (
+            patch.object(engine, "_fetch_sample", return_value=[]),
+            pytest.raises(SchemaInferenceNoRecordsError),
+        ):
+            engine.infer(None, None, {})
 
     def test_sample_value_skips_sentinels(self):
         records = [{"items": [{"id": 1}]}]
@@ -210,24 +224,31 @@ class TestSchemaInferenceEngineInfer:
 
     def test_fetch_error_raises_schema_inference_error(self):
         from api_connector.services.pagination.engine import PaginationEngineError
+
         engine = SchemaInferenceEngine()
-        with patch.object(
-            engine, "_fetch_sample",
-            side_effect=PaginationEngineError("parse error")
+        with (
+            patch.object(
+                engine,
+                "_fetch_sample",
+                side_effect=PaginationEngineError("parse error"),
+            ),
+            pytest.raises(SchemaInferenceError),
         ):
-            with pytest.raises(SchemaInferenceError):
-                engine.infer(None, None, {})
+            engine.infer(None, None, {})
 
 
 # ─── upsert_fields() DB tests ─────────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 class TestUpsertFields:
     def _specs(self, **overrides):
-        defaults = dict(
-            key_path="customer.id", inferred_type="integer",
-            null_percentage=0.0, sample_value=1
-        )
+        defaults = {
+            "key_path": "customer.id",
+            "inferred_type": "integer",
+            "null_percentage": 0.0,
+            "sample_value": 1,
+        }
         defaults.update(overrides)
         return [SchemaFieldSpec(**defaults)]
 
@@ -249,12 +270,14 @@ class TestUpsertFields:
         endpoint = EndpointFactory(connection_profile=profile)
         # Set alias on existing field
         sf = SchemaFieldFactory(
-            endpoint=endpoint, key_path="id", alias="customer_id",
+            endpoint=endpoint,
+            key_path="id",
+            alias="customer_id",
             inferred_type="string",
         )
         engine = SchemaInferenceEngine()
         specs = [SchemaFieldSpec("id", "integer", 0.0, 1)]
-        result = engine.upsert_fields(endpoint, specs)
+        engine.upsert_fields(endpoint, specs)
         sf.refresh_from_db()
         assert sf.alias == "customer_id"  # PRESERVED
         assert sf.inferred_type == "integer"  # REFRESHED
@@ -267,6 +290,7 @@ class TestUpsertFields:
         specs = [SchemaFieldSpec("internal", "string", 0.0, "x")]
         engine.upsert_fields(endpoint, specs)
         from api_connector.models import SchemaField
+
         sf = SchemaField.objects.get(endpoint=endpoint, key_path="internal")
         assert sf.include is False  # PRESERVED
 
@@ -299,5 +323,6 @@ class TestUpsertFields:
         specs = [SchemaFieldSpec("score", "float", 0.0, 9.5)]
         engine.upsert_fields(endpoint, specs)
         from api_connector.models import SchemaField
+
         sf = SchemaField.objects.get(endpoint=endpoint, key_path="score")
         assert sf.inferred_type == "float"  # UPDATED

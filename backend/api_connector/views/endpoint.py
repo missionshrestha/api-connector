@@ -7,11 +7,20 @@ from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
+from api_connector.error_codes import (
+    ALIAS_DUPLICATE,
+    CREDENTIAL_ENCRYPTION_FAILED,
+    SCHEMA_INFERENCE_FAILED,
+    SCHEMA_INFERENCE_NO_RECORDS,
+    TEST_HTTP_FAILURE,
+    TEST_NETWORK_FAILURE,
+)
 from api_connector.models import (
     ConnectionProfile,
     Endpoint,
     PaginationConfig,
     PaginationStrategy,
+    SchemaField,
 )
 from api_connector.serializers.endpoint import (
     EndpointCreateSerializer,
@@ -22,23 +31,12 @@ from api_connector.serializers.pagination_config import (
     PaginationConfigReadSerializer,
     PaginationConfigUpdateSerializer,
 )
-
-from api_connector.error_codes import (
-    ALIAS_DUPLICATE,
-    CREDENTIAL_ENCRYPTION_FAILED,
-    SCHEMA_INFERENCE_FAILED,
-    SCHEMA_INFERENCE_NO_RECORDS,
-    TEST_HTTP_FAILURE,
-    TEST_NETWORK_FAILURE,
-)
-from api_connector.models import SchemaField
 from api_connector.serializers.schema_field import (
     SchemaFieldBulkUpdateSerializer,
     SchemaFieldReadSerializer,
     SchemaFieldUpdateSerializer,
 )
 from api_connector.services.schema_inference import SchemaInferenceEngine
-
 
 logger = logging.getLogger("api_connector.views.endpoint")
 
@@ -163,8 +161,6 @@ class EndpointViewSet(viewsets.ModelViewSet):
         from api_connector.error_codes import (
             CREDENTIAL_ENCRYPTION_FAILED,
             DATA_ROOT_PATH_INVALID,
-            TEST_HTTP_FAILURE,
-            TEST_NETWORK_FAILURE,
         )
         from api_connector.services.auth.registry import auth_handler_registry
         from api_connector.services.encryption import encryption_service
@@ -258,8 +254,7 @@ class EndpointViewSet(viewsets.ModelViewSet):
             }
         )
 
-
-# ─── Schema inference actions ──────────────────────────────────────────────
+    # ─── Schema inference actions ──────────────────────────────────────────────
 
     @action(
         detail=True,
@@ -382,7 +377,9 @@ class EndpointViewSet(viewsets.ModelViewSet):
         """
         endpoint = self.get_object()
         schema_field = get_object_or_404(
-            SchemaField, pk=field_pk, endpoint=endpoint  # endpoint filter is security boundary
+            SchemaField,
+            pk=field_pk,
+            endpoint=endpoint,  # endpoint filter is security boundary
         )
 
         serializer = SchemaFieldUpdateSerializer(data=request.data)
@@ -390,7 +387,7 @@ class EndpointViewSet(viewsets.ModelViewSet):
         validated = serializer.validated_data
 
         # Alias uniqueness check (requires endpoint context — done in view, not serializer)
-        if "alias" in validated and validated["alias"]:
+        if validated.get("alias"):
             alias = validated["alias"]
             if (
                 SchemaField.objects.filter(endpoint=endpoint, alias=alias)

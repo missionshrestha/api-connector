@@ -11,6 +11,7 @@ Security: sample_value appears in read output (may contain PII from API response
   The alias pattern ^[a-zA-Z0-9_-]+$ prevents control characters and shell-injection
   content in column headers that will be used in Phase 7 CSV export.
 """
+
 import re
 
 from rest_framework import serializers
@@ -52,7 +53,7 @@ class SchemaFieldUpdateSerializer(serializers.Serializer):
     )
     include = serializers.BooleanField(required=False)
     type_override = serializers.ChoiceField(
-        choices=[("", None)] + list(InferredType.choices),
+        choices=[("", None), *InferredType.choices],
         required=False,
         allow_null=True,
         allow_blank=True,
@@ -94,9 +95,7 @@ class SchemaFieldBulkUpdateSerializer(serializers.Serializer):
     """
 
     include_all = serializers.BooleanField(required=False)
-    field_ids = serializers.ListField(
-        child=serializers.IntegerField(), required=False
-    )
+    field_ids = serializers.ListField(child=serializers.IntegerField(), required=False)
     include = serializers.BooleanField(required=False)
 
     def validate(self, data: dict) -> dict:

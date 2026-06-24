@@ -13,6 +13,7 @@ Security:
   - NEVER log credentials, sample_value contents, or raw response bodies.
   - Log only structural metadata: endpoint_id, record count, path count, duration.
 """
+
 from __future__ import annotations
 
 import logging
@@ -41,6 +42,7 @@ _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 # ── Type inference ─────────────────────────────────────────────────────────────
+
 
 def _infer_type_from_values(values: list) -> str:
     """
@@ -71,8 +73,7 @@ def _infer_type_from_values(values: list) -> str:
 
     # Numeric widening
     all_numeric = all(
-        isinstance(v, (int, float)) and not isinstance(v, bool)
-        for v in values
+        isinstance(v, (int, float)) and not isinstance(v, bool) for v in values
     )
     if all_numeric:
         if any(isinstance(v, float) for v in values):
@@ -91,6 +92,7 @@ def _infer_type_from_values(values: list) -> str:
 
 
 # ── Engine ─────────────────────────────────────────────────────────────────────
+
 
 class SchemaInferenceEngine:
     """
@@ -161,8 +163,8 @@ class SchemaInferenceEngine:
         from api_connector.services.pagination.strategies import NoPaginationStrategy
         from api_connector.services.pagination.types import SafetyConfig
 
-        ROW_LIMIT = 300
-        MAX_PAGES = 3
+        row_limit = 300
+        max_pages = 3
 
         try:
             config = endpoint.pagination_config
@@ -170,14 +172,14 @@ class SchemaInferenceEngine:
                 config.strategy, params=config.strategy_params or {}
             )
             safety = SafetyConfig(
-                max_pages=MAX_PAGES,
-                max_records=ROW_LIMIT,
+                max_pages=max_pages,
+                max_records=row_limit,
                 inter_page_delay_ms=config.inter_page_delay_ms,
                 max_retries=config.max_retries,
             )
         except PaginationConfig.DoesNotExist:
             strategy = NoPaginationStrategy()
-            safety = SafetyConfig(max_pages=1, max_records=ROW_LIMIT)
+            safety = SafetyConfig(max_pages=1, max_records=row_limit)
 
         engine = PaginationEngine()
         records: list[dict] = []
@@ -188,13 +190,13 @@ class SchemaInferenceEngine:
             credentials=credentials,
             strategy=strategy,
             safety=safety,
-            row_limit=ROW_LIMIT,
+            row_limit=row_limit,
         ):
             records.extend(page_records)
-            if len(records) >= ROW_LIMIT:
+            if len(records) >= row_limit:
                 break
 
-        return records[:ROW_LIMIT]
+        return records[:row_limit]
 
     def infer(
         self,
@@ -209,17 +211,22 @@ class SchemaInferenceEngine:
         Raises SchemaInferenceNoRecordsError if no records were found.
         Raises SchemaInferenceError on network or parsing failure.
         """
-        from api_connector.services.pagination.engine import PaginationEngineError
         from api_connector.services.http_exceptions import (
-            HTTPNetworkError, HTTPStatusError, HTTPTimeoutError,
+            HTTPNetworkError,
+            HTTPStatusError,
+            HTTPTimeoutError,
         )
+        from api_connector.services.pagination.engine import PaginationEngineError
 
         start = time.monotonic()
 
         try:
             records = self._fetch_sample(endpoint, auth_handler, credentials)
         except (
-            PaginationEngineError, HTTPStatusError, HTTPTimeoutError, HTTPNetworkError
+            PaginationEngineError,
+            HTTPStatusError,
+            HTTPTimeoutError,
+            HTTPNetworkError,
         ) as exc:
             raise SchemaInferenceError(str(exc)) from exc
 
@@ -271,8 +278,10 @@ class SchemaInferenceEngine:
             # Sample value: first non-null, non-sentinel value
             sample_value = next(
                 (
-                    v for v in non_null_values
-                    if v not in (ARRAY_OF_OBJECTS_SENTINEL, ARRAY_OF_PRIMITIVES_SENTINEL)
+                    v
+                    for v in non_null_values
+                    if v
+                    not in (ARRAY_OF_OBJECTS_SENTINEL, ARRAY_OF_PRIMITIVES_SENTINEL)
                 ),
                 None,
             )
@@ -301,7 +310,7 @@ class SchemaInferenceEngine:
         self,
         endpoint: Any,
         specs: list[SchemaFieldSpec],
-    ) -> "list[SchemaField]":
+    ) -> list[SchemaField]:
         """
         Write inference results to the DB, preserving user edits on re-run.
 
@@ -316,8 +325,7 @@ class SchemaInferenceEngine:
         Paths that disappeared → stale=True (not deleted).
         """
         existing: dict[str, SchemaField] = {
-            sf.key_path: sf
-            for sf in SchemaField.objects.filter(endpoint=endpoint)
+            sf.key_path: sf for sf in SchemaField.objects.filter(endpoint=endpoint)
         }
         new_paths = {spec.key_path for spec in specs}
 
@@ -358,7 +366,12 @@ class SchemaInferenceEngine:
             if to_update:
                 SchemaField.objects.bulk_update(
                     to_update,
-                    fields=["inferred_type", "null_percentage", "sample_value", "stale"],
+                    fields=[
+                        "inferred_type",
+                        "null_percentage",
+                        "sample_value",
+                        "stale",
+                    ],
                 )
 
         created_count = len(to_create)

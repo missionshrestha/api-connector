@@ -10,6 +10,7 @@ naturally appear as API response string values.
 Security: SchemaFieldSpec.sample_value holds a raw API response value — may
 contain PII. Never log SchemaFieldSpec instances directly.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -23,6 +24,7 @@ ARRAY_OF_PRIMITIVES_SENTINEL: str = "__schema_aop__"
 
 # ── Output dataclass ──────────────────────────────────────────────────────────
 
+
 @dataclass
 class SchemaFieldSpec:
     """
@@ -31,12 +33,13 @@ class SchemaFieldSpec:
     """
 
     key_path: str
-    inferred_type: str        # One of InferredType string values
-    null_percentage: float    # 0.0–1.0; fraction of records where absent or None
-    sample_value: Any         # First non-null, non-sentinel value seen; may be PII
+    inferred_type: str  # One of InferredType string values
+    null_percentage: float  # 0.0–1.0; fraction of records where absent or None
+    sample_value: Any  # First non-null, non-sentinel value seen; may be PII
 
 
 # ── Exception hierarchy ───────────────────────────────────────────────────────
+
 
 class SchemaInferenceError(Exception):
     """
