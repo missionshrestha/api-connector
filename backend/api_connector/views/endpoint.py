@@ -23,6 +23,23 @@ from api_connector.serializers.pagination_config import (
     PaginationConfigUpdateSerializer,
 )
 
+from api_connector.error_codes import (
+    ALIAS_DUPLICATE,
+    CREDENTIAL_ENCRYPTION_FAILED,
+    SCHEMA_INFERENCE_FAILED,
+    SCHEMA_INFERENCE_NO_RECORDS,
+    TEST_HTTP_FAILURE,
+    TEST_NETWORK_FAILURE,
+)
+from api_connector.models import SchemaField
+from api_connector.serializers.schema_field import (
+    SchemaFieldBulkUpdateSerializer,
+    SchemaFieldReadSerializer,
+    SchemaFieldUpdateSerializer,
+)
+from api_connector.services.schema_inference import SchemaInferenceEngine
+
+
 logger = logging.getLogger("api_connector.views.endpoint")
 
 # Default config returned when no PaginationConfig exists for an endpoint
@@ -239,4 +256,207 @@ class EndpointViewSet(viewsets.ModelViewSet):
                 "top_candidate": candidates[0] if candidates else None,
                 "all_candidates": candidates,
             }
+        )
+
+
+# ─── Schema inference actions ──────────────────────────────────────────────
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="schema/infer",
+        url_name="schema-infer",
+    )
+    def schema_infer(self, request, profile_pk=None, pk=None):
+        """
+        POST /api/connector/profiles/<profile_pk>/endpoints/<pk>/schema/infer/
+
+        Fetches up to 300 records (3 pages) from the endpoint, runs type inference,
+        and writes results to SchemaField records with stale/preservation logic.
+
+        Security (SSRF): makes outbound HTTP. Phase 8 audit must evaluate RFC 1918 blocking.
+        Synchronous — may take 5–15s. Phase 8 can convert to async task if needed.
+        """
+        from cryptography.fernet import InvalidToken
+
+        from api_connector.services.auth.registry import auth_handler_registry
+        from api_connector.services.encryption import encryption_service
+        from api_connector.services.schema_inference.types import (
+            SchemaInferenceError,
+            SchemaInferenceNoRecordsError,
+        )
+
+        endpoint = self.get_object()
+        profile = endpoint.connection_profile
+
+        # Decrypt credentials
+        try:
+            credentials = encryption_service.decrypt_to_dict(
+                profile.auth_config.encrypted_credentials
+            )
+            credentials["_profile_id"] = profile.pk
+        except (InvalidToken, Exception):
+            return Response(
+                {
+                    "error_code": CREDENTIAL_ENCRYPTION_FAILED,
+                    "message": "Could not decrypt profile credentials.",
+                    "detail": {},
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        auth_handler = auth_handler_registry.get(profile.auth_type)
+        engine = SchemaInferenceEngine()
+
+        try:
+            specs = engine.infer(endpoint, auth_handler, credentials)
+        except SchemaInferenceNoRecordsError as exc:
+            return Response(
+                {
+                    "error_code": SCHEMA_INFERENCE_NO_RECORDS,
+                    "message": str(exc),
+                    "detail": {},
+                },
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+        except SchemaInferenceError as exc:
+            return Response(
+                {
+                    "error_code": SCHEMA_INFERENCE_FAILED,
+                    "message": str(exc),
+                    "detail": {},
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        fields = engine.upsert_fields(endpoint, specs)
+        logger.info(
+            "schema_infer: endpoint=%s specs=%d",
+            endpoint.pk,
+            len(specs),
+        )
+        return Response(
+            SchemaFieldReadSerializer(fields, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="schema/fields",
+        url_name="schema-fields",
+    )
+    def schema_fields(self, request, profile_pk=None, pk=None):
+        """
+        GET /api/connector/profiles/<profile_pk>/endpoints/<pk>/schema/fields/
+
+        Returns all SchemaField records for this endpoint ordered by key_path.
+        Includes stale fields (they remain visible in the Explorer with greyed styling).
+        Returns [] when no inference has been run — not 404.
+        """
+        endpoint = self.get_object()
+        fields = SchemaField.objects.filter(endpoint=endpoint).order_by("key_path")
+        return Response(
+            SchemaFieldReadSerializer(fields, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @action(
+        detail=True,
+        methods=["patch"],
+        url_path=r"schema/fields/(?P<field_pk>\d+)",
+        url_name="schema-field-update",
+    )
+    def schema_field_update(
+        self,
+        request,
+        profile_pk=None,
+        pk=None,
+        field_pk=None,
+    ):
+        """
+        PATCH /api/connector/profiles/<profile_pk>/endpoints/<pk>/schema/fields/<field_pk>/
+
+        Updates user-editable fields (alias, include, type_override, array_handling).
+        Security boundary: field_pk filtered by endpoint — prevents cross-endpoint updates.
+        """
+        endpoint = self.get_object()
+        schema_field = get_object_or_404(
+            SchemaField, pk=field_pk, endpoint=endpoint  # endpoint filter is security boundary
+        )
+
+        serializer = SchemaFieldUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        validated = serializer.validated_data
+
+        # Alias uniqueness check (requires endpoint context — done in view, not serializer)
+        if "alias" in validated and validated["alias"]:
+            alias = validated["alias"]
+            if (
+                SchemaField.objects.filter(endpoint=endpoint, alias=alias)
+                .exclude(pk=schema_field.pk)
+                .exists()
+            ):
+                return Response(
+                    {
+                        "error_code": ALIAS_DUPLICATE,
+                        "message": f"Alias '{alias}' is already used by another field in this endpoint.",
+                        "detail": {"alias": alias},
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        # Apply validated edits
+        if "alias" in validated:
+            schema_field.alias = validated["alias"]
+        if "include" in validated:
+            schema_field.include = validated["include"]
+        if "type_override" in validated:
+            schema_field.type_override = validated["type_override"]
+        if "array_handling" in validated:
+            schema_field.array_handling = validated["array_handling"]
+
+        schema_field.save()
+        return Response(
+            SchemaFieldReadSerializer(schema_field).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="schema/fields/bulk-update",
+        url_name="schema-fields-bulk-update",
+    )
+    def schema_fields_bulk_update(self, request, profile_pk=None, pk=None):
+        """
+        POST /api/connector/profiles/<profile_pk>/endpoints/<pk>/schema/fields/bulk-update/
+
+        Batch include toggle. Always scoped to this endpoint — cannot update other endpoints' fields.
+        Uses queryset.update() for atomic SQL UPDATE (not N individual saves).
+        """
+        endpoint = self.get_object()
+        serializer = SchemaFieldBulkUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        validated = serializer.validated_data
+
+        base_qs = SchemaField.objects.filter(endpoint=endpoint)  # always scoped
+
+        if "include_all" in validated:
+            updated_count = base_qs.update(include=validated["include_all"])
+        else:
+            field_ids = validated["field_ids"]
+            include = validated["include"]
+            updated_count = base_qs.filter(pk__in=field_ids).update(include=include)
+
+        logger.info(
+            "bulk_update: endpoint=%s include_all=%s updated_count=%d",
+            endpoint.pk,
+            validated.get("include_all"),
+            updated_count,
+        )
+
+        return Response(
+            {"updated_count": updated_count},
+            status=status.HTTP_200_OK,
         )

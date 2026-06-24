@@ -111,6 +111,11 @@ REST_FRAMEWORK = {
 # use. A non-empty default here would silently mask misconfigured production.
 ENCRYPTION_KEY = env("ENCRYPTION_KEY", default="")
 
+# ─── Schema Inference ─────────────────────────────────────────────────────────
+# Maximum recursion depth for the schema walker. Default covers all realistic
+# REST APIs. Increase only if target APIs have nesting beyond 10 levels.
+SCHEMA_INFERENCE_MAX_DEPTH = env.int("SCHEMA_INFERENCE_MAX_DEPTH", default=10)
+
 # ─── HTTPS ────────────────────────────────────────────────────────────────────
 SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=False)
 
