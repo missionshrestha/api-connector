@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { TooltipProvider } from "@/shared/components/ui/tooltip";
 import { ProfileListPage, ProfileFormPage } from "@/features/connection-profile";
 import { EndpointListPage, EndpointFormPage } from "@/features/endpoint";
+import { SchemaExplorerPage } from "@/features/schema-explorer";
 
 export default function App() {
   return (
@@ -16,6 +17,10 @@ export default function App() {
         <Route path="/profiles/:profileId/endpoints" element={<EndpointListPage />} />
         <Route path="/profiles/:profileId/endpoints/new" element={<EndpointFormPage />} />
         <Route path="/profiles/:profileId/endpoints/:endpointId/edit" element={<EndpointFormPage />} />
+        <Route
+          path="/profiles/:profileId/endpoints/:endpointId/schema"
+          element={<SchemaExplorerPage />}
+        />
       </Routes>
     </TooltipProvider>
   );

@@ -36,4 +36,10 @@ describe("App routing", () => {
     renderWithRouter("/profiles/1/endpoints/new");
     expect(screen.getByText("New Endpoint")).toBeInTheDocument();
   });
+
+  it("renders schema explorer page without crash", () => {
+  renderWithRouter("/profiles/1/endpoints/1/schema");
+  expect(document.body).toBeTruthy();
+  });
+
 });

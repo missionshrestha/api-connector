@@ -104,6 +104,13 @@ export default function EndpointListPage() {
                 </p>
               </div>
               <div className="flex gap-2 ml-3">
+                
+                <Button size="sm" variant="ghost" asChild>
+                  <Link to={`/profiles/${profileId}/endpoints/${endpoint.id}/schema`}>
+                    Schema
+                  </Link>
+                </Button>
+
                 <Button size="sm" variant="outline" asChild>
                   <Link
                     to={`/profiles/${profileId}/endpoints/${endpoint.id}/edit`}

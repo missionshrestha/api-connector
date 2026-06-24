@@ -3,3 +3,5 @@ export * from "./TypeBadge";
 export * from "./NullPercentageBar";
 export * from "./AliasInput";
 export * from "./SchemaFieldRow";
+export * from "./SchemaExplorerTree";
+export * from "./RerunInferenceDialog";

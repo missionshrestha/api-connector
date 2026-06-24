@@ -57,7 +57,7 @@ function buildTree(fields: SchemaField[]): TreeNode[] {
     } else {
       const node: TreeNode = {
         path: finalPath,
-        label: segments.at(-1)!,
+        label: segments[finalDepth]!,
         depth: finalDepth,
         field,
         children: [],
@@ -163,6 +163,7 @@ export function SchemaExplorerTree({
 
   // ⚠️ CRITICAL: scroll container MUST have explicit height + overflow-y: auto
   // Without it, getTotalSize() returns 0 and no rows render at all.
+  // eslint-disable-next-line react-hooks/incompatible-library -- useVirtualizer is incompatible with React Compiler; component opts out via "use no memo" above
   const virtualizer = useVirtualizer({
     count: flatItems.length,
     getScrollElement: () => scrollContainerRef.current,
