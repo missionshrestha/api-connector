@@ -36,7 +36,16 @@ export function ProfileCard({ profile, onDelete }: ProfileCardProps) {
             testedAt={profile.last_test_at}
             statusCode={profile.last_test_status_code}
           />
-          <div className="flex gap-2 mt-3">
+          <div className="flex gap-2 mt-3 flex-wrap">
+            
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => navigate(`/profiles/${profile.id}/endpoints`)}
+            >
+              Endpoints
+            </Button>
+
             <Button
               size="sm"
               variant="outline"

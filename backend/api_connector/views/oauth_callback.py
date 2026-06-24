@@ -233,7 +233,10 @@ def oauth_callback(request: HttpRequest) -> HttpResponse:
             token_response = client.post(
                 token_endpoint,
                 data=form_data,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                headers={
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    # "Accept": "application/json",
+                },
             )
     except Exception as exc:
         logger.error("OAuth AC token exchange network error: %s", type(exc).__name__)

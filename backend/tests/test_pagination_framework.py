@@ -6,7 +6,6 @@ Pure Python — no DB access, no Django ORM.
 
 import pytest
 
-from api_connector.models.enums import PaginationStrategy
 from api_connector.services.pagination.base import BasePaginationStrategy
 from api_connector.services.pagination.registry import pagination_registry
 from api_connector.services.pagination.types import PaginatedResponse, SafetyConfig
@@ -96,11 +95,27 @@ def test_is_complete_exceeds_both_limits():
 # ── Registry ──────────────────────────────────────────────────────────────────
 
 
-def test_registry_raises_for_all_unregistered_strategies():
-    """Pre-Phase-5 state: no strategies are registered yet."""
+def test_registry_resolves_all_registered_strategies():
+    """
+    After Phase 5: all 6 strategies must resolve without ValueError.
+    This replaces the pre-Phase-5 test that asserted ValueError for all strategies.
+    """
+    from api_connector.models import PaginationStrategy
+
+    dummy_params = {
+        "offset_param": "offset",
+        "limit_param": "limit",
+        "page_size": 10,
+        "page_param": "page",
+        "page_size_param": "per_page",
+        "cursor_request_param": "after",
+        "cursor_response_path": "meta.cursor",
+        "next_url_response_path": "links.next",
+    }
     for strategy_value in PaginationStrategy.values:
-        with pytest.raises(ValueError, match="No strategy registered"):
-            pagination_registry.get(strategy_value)
+        handler = pagination_registry.get(strategy_value, params=dummy_params)
+        assert handler is not None, f"Registry returned None for {strategy_value}"
+    print("All 6 strategies registered: PASS")
 
 
 def test_registry_raises_for_unknown_strategy():

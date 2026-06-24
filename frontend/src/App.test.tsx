@@ -7,25 +7,33 @@ import App from "./App";
 
 function createTestQueryClient() {
   return new QueryClient({
-    defaultOptions: {
-      queries: { retry: false },
-      mutations: { retry: false },
-    },
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
 }
 
-describe("App", () => {
-  it("renders the profile list page at /profiles", () => {
-    const queryClient = createTestQueryClient();
-    render(
-      <MemoryRouter initialEntries={["/profiles"]}>
-        <QueryClientProvider client={queryClient}>
-          <App />
-        </QueryClientProvider>
-      </MemoryRouter>
-    );
-    // Stub renders the page name text
-    expect(screen.getByText("Connection Profiles")).toBeInTheDocument();
+function renderWithRouter(initialPath: string) {
+  return render(
+    <MemoryRouter initialEntries={[initialPath]}>
+      <QueryClientProvider client={createTestQueryClient()}>
+        <App />
+      </QueryClientProvider>
+    </MemoryRouter>
+  );
+}
 
+describe("App routing", () => {
+  it("renders profile list at /profiles", () => {
+    renderWithRouter("/profiles");
+    expect(screen.getByText("Connection Profiles")).toBeInTheDocument();
+  });
+
+  it("renders endpoint list page at /profiles/1/endpoints without crash", () => {
+    renderWithRouter("/profiles/1/endpoints");
+    expect(screen.getByText("Endpoints")).toBeInTheDocument();
+  });
+
+  it("renders endpoint form at /profiles/1/endpoints/new without crash", () => {
+    renderWithRouter("/profiles/1/endpoints/new");
+    expect(screen.getByText("New Endpoint")).toBeInTheDocument();
   });
 });

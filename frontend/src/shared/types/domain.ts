@@ -72,6 +72,8 @@ export interface Endpoint {
   endpoint_headers: Array<{ name: string; value: string }>;
   data_root_path: string | null;
   record_count_path: string | null;
+  detected_path_variables: string[];       // computed at read time
+  has_pagination_config: boolean;           // computed from OneToOne relation
   created_at: string;
   updated_at: string;
 }
