@@ -38,8 +38,13 @@ describe("App routing", () => {
   });
 
   it("renders schema explorer page without crash", () => {
-  renderWithRouter("/profiles/1/endpoints/1/schema");
-  expect(document.body).toBeTruthy();
+    renderWithRouter("/profiles/1/endpoints/1/schema");
+    expect(document.body).toBeTruthy();
+  });
+
+  it("renders data preview page heading without crash", () => {
+    renderWithRouter("/profiles/1/endpoints/1/preview");
+    expect(screen.getByRole("heading", { name: "Data Preview" })).toBeInTheDocument();
   });
 
 });

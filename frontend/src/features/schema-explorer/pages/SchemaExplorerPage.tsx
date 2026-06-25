@@ -1,6 +1,6 @@
 // frontend/src/features/schema-explorer/pages/SchemaExplorerPage.tsx
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Skeleton } from "@/shared/components/ui/skeleton";
@@ -98,6 +98,7 @@ export default function SchemaExplorerPage() {
           onChange={(e) => setSearchQuery(e.target.value)}
           className="max-w-xs"
         />
+        
         <Button
           variant="outline"
           size="sm"
@@ -106,6 +107,7 @@ export default function SchemaExplorerPage() {
         >
           Select All
         </Button>
+        
         <Button
           variant="outline"
           size="sm"
@@ -114,6 +116,7 @@ export default function SchemaExplorerPage() {
         >
           Deselect All
         </Button>
+        
         <Button
           size="sm"
           disabled={runInference.isPending}
@@ -121,6 +124,14 @@ export default function SchemaExplorerPage() {
         >
           {runInference.isPending ? "Running…" : "Run Inference"}
         </Button>
+
+        <Button variant="outline" size="sm" asChild>
+        <Link to={`/profiles/${profileId}/endpoints/${endpointId}/preview`}>
+            Preview Data
+        </Link>
+        </Button>
+
+
       </div>
 
       {/* Error banner */}
