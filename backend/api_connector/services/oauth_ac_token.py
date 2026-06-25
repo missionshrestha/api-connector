@@ -205,6 +205,10 @@ class OAuthACTokenService:
             _OAuthACRefreshError: token endpoint rejected the refresh token.
         """
         token_endpoint = credentials["token_endpoint"]
+
+        from api_connector.services.ssrf import validate_url_for_ssrf
+        validate_url_for_ssrf(token_endpoint)
+        
         form_data = {
             "grant_type": "refresh_token",
             "refresh_token": refresh_token_plaintext,

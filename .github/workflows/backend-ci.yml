@@ -74,6 +74,22 @@ jobs:
         working-directory: backend
         run: ruff format --check .
 
+      - name: Security — No direct Fernet imports outside encryption.py (ADR-005)
+        working-directory: backend
+        run: |
+          COUNT=$(grep -r "from cryptography.fernet import Fernet" api_connector/ \
+            --include="*.py" | grep -v "encryption.py" | wc -l | tr -d ' ')
+          if [ "$COUNT" -ne "0" ]; then
+            echo "SECURITY VIOLATION (ADR-005): Direct Fernet import found outside encryption.py:"
+            grep -r "from cryptography.fernet import Fernet" api_connector/ \
+              --include="*.py" | grep -v "encryption.py"
+            echo ""
+            echo "All encrypt/decrypt operations must go through EncryptionService."
+            echo "See docs/adr/005-encryption-single-call-site.md"
+            exit 1
+          fi
+          echo "✓ Fernet import check: PASS (0 violations)"
+
       - name: Run tests
         working-directory: backend
         run: pytest --tb=short

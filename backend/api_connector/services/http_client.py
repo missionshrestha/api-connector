@@ -68,6 +68,9 @@ class BaseHTTPClient:
             HTTPTimeoutError: for request timeout
             HTTPNetworkError: for connection failure or protocol error
         """
+        from api_connector.services.ssrf import validate_url_for_ssrf
+        validate_url_for_ssrf(url)  # No-op when SSRF_PROTECTION_ENABLED=False
+
         # Strip query string before logging — prevents API key leakage
         url_no_qs = url.split("?")[0]
 

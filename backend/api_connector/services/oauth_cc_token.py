@@ -106,6 +106,10 @@ class OAuthCCTokenService:
         Security: NEVER log the response body or the access_token value.
         """
         token_endpoint = credentials["token_endpoint"]
+        
+        from api_connector.services.ssrf import validate_url_for_ssrf
+        validate_url_for_ssrf(token_endpoint)
+        
         form_data: dict = {
             "grant_type": "client_credentials",
             "client_id": credentials["client_id"],

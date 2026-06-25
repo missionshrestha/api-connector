@@ -32,6 +32,7 @@ from rest_framework.views import exception_handler as drf_exception_handler
 
 from api_connector.error_codes import (
     NOT_FOUND,
+    OAUTH_AC_REAUTHORIZATION_REQUIRED,
     PERMISSION_DENIED,
     UNEXPECTED_ERROR,
     VALIDATION_ERROR,
@@ -62,6 +63,33 @@ def custom_exception_handler(exc, context) -> Response | None:
     DRF EXCEPTION_HANDLER target. Maps exceptions to the structured error envelope.
     Registered in settings.REST_FRAMEWORK["EXCEPTION_HANDLER"].
     """
+    # ── OAuthACReauthorizationRequired ────────────────────────────────────────
+    # MUST be checked before bare Exception catch below.
+    # OAuthACReauthorizationRequired is a subclass of Exception — order matters.
+    # Covers: schema_infer, preview, detect_data_root, any future action
+    # that calls OAuthACAuthHandler.prepare_request() with expired/revoked tokens.
+    try:
+        from api_connector.services.oauth_ac_exceptions import OAuthACReauthorizationRequired
+        if isinstance(exc, OAuthACReauthorizationRequired):
+            return _make_error_response(
+                error_code=OAUTH_AC_REAUTHORIZATION_REQUIRED,
+                message=exc.message,  # user-safe per Phase 4 design
+                detail={"reason": exc.reason},
+                http_status=status.HTTP_401_UNAUTHORIZED,
+            )
+    
+        from api_connector.services.ssrf import SSRFProtectionError
+        if isinstance(exc, SSRFProtectionError):
+            return _make_error_response(
+                error_code=VALIDATION_ERROR,
+                message=str(exc),
+                detail={"protection": "SSRF_PROTECTION_ENABLED is active"},
+                http_status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+    except ImportError: 
+        pass  # Module not yet available (shouldn't happen in production)
+
     # ── DRF Validation Error ──────────────────────────────────────────────────
     if isinstance(exc, ValidationError):
         return _make_error_response(

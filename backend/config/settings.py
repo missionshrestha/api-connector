@@ -116,6 +116,13 @@ ENCRYPTION_KEY = env("ENCRYPTION_KEY", default="")
 # REST APIs. Increase only if target APIs have nesting beyond 10 levels.
 SCHEMA_INFERENCE_MAX_DEPTH = env.int("SCHEMA_INFERENCE_MAX_DEPTH", default=10)
 
+# ─── SSRF Protection ──────────────────────────────────────────────────────────
+# Block RFC 1918 / loopback / link-local IPs in outbound HTTP calls.
+# Set True in shared/cloud deployments where all users must not be trusted
+# to configure arbitrary base_url values.
+# Default False: private/internal tooling deployments where users are trusted.
+SSRF_PROTECTION_ENABLED = env.bool("SSRF_PROTECTION_ENABLED", default=False)
+
 # ─── HTTPS ────────────────────────────────────────────────────────────────────
 SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=False)
 
