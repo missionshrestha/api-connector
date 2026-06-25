@@ -170,7 +170,7 @@ class PaginationEngine:
             )
 
             # Yield this page's records to the caller
-            yield records
+            yield records, body
 
             # Check row_limit — stop if caller's row budget is exhausted
             if row_limit is not None and cumulative_total_fetched >= row_limit:

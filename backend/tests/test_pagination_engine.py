@@ -30,6 +30,11 @@ SAFETY = SafetyConfig(max_pages=100, max_records=10000)
 OL_PARAMS = {"offset_param": "offset", "limit_param": "limit", "page_size": 10}
 
 
+def collect_pages(engine, **kwargs):
+    """Collect all pages from the engine, unpacking (records, body) tuples."""
+    return [records for records, _ in engine.paginate(**kwargs)]
+
+
 @pytest.mark.django_db
 class TestPaginationEngineOffsetLimit:
     def test_happy_path_three_pages(self, httpx_mock):
@@ -51,7 +56,7 @@ class TestPaginationEngineOffsetLimit:
         )
 
         engine = PaginationEngine()
-        pages = list(
+        raw_results = list(
             engine.paginate(
                 endpoint=endpoint,
                 auth_handler=NoneAuthHandler(),
@@ -60,6 +65,7 @@ class TestPaginationEngineOffsetLimit:
                 safety=SAFETY,
             )
         )
+        pages = [records for records, _ in raw_results]
 
         assert len(pages) == 3
         assert len(pages[0]) == 10
@@ -83,7 +89,7 @@ class TestPaginationEngineOffsetLimit:
             )
 
         engine = PaginationEngine()
-        pages = list(
+        raw_results = list(
             engine.paginate(
                 endpoint=endpoint,
                 auth_handler=NoneAuthHandler(),
@@ -93,6 +99,7 @@ class TestPaginationEngineOffsetLimit:
                 row_limit=15,
             )
         )
+        pages = [records for records, _ in raw_results]
 
         total = sum(len(p) for p in pages)
         assert total <= 15
@@ -107,7 +114,8 @@ class TestPaginationEngineOffsetLimit:
         httpx_mock.add_response(json=[{"id": 1}, {"id": 2}], status_code=200)
 
         engine = PaginationEngine()
-        pages = list(
+
+        raw_results = list(
             engine.paginate(
                 endpoint=endpoint,
                 auth_handler=NoneAuthHandler(),
@@ -116,6 +124,8 @@ class TestPaginationEngineOffsetLimit:
                 safety=SAFETY,
             )
         )
+        pages = [records for records, _ in raw_results]
+
         assert len(pages) == 1
         assert len(pages[0]) == 2
 
@@ -152,7 +162,8 @@ class TestPaginationEngineOffsetLimit:
             max_pages=100, max_records=10000, max_retries=3, initial_retry_delay_ms=0
         )
         engine = PaginationEngine()
-        pages = list(
+
+        raw_results = list(
             engine.paginate(
                 endpoint=endpoint,
                 auth_handler=NoneAuthHandler(),
@@ -161,6 +172,8 @@ class TestPaginationEngineOffsetLimit:
                 safety=safety,
             )
         )
+        pages = [records for records, _ in raw_results]
+
         assert len(pages) == 1
         assert pages[0] == [{"id": 1}]
 
@@ -177,7 +190,8 @@ class TestPaginationEngineOffsetLimit:
             status_code=200,
         )
         engine = PaginationEngine()
-        pages = list(
+
+        raw_results = list(
             engine.paginate(
                 endpoint=endpoint,
                 auth_handler=NoneAuthHandler(),
@@ -186,6 +200,8 @@ class TestPaginationEngineOffsetLimit:
                 safety=SAFETY,
             )
         )
+        pages = [records for records, _ in raw_results]
+
         assert pages == [[{"id": 1}]]
 
 

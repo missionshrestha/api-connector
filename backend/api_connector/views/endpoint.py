@@ -1,6 +1,7 @@
 # backend/api_connector/views/endpoint.py
 import logging
 
+from cryptography.fernet import InvalidToken
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -10,6 +11,7 @@ from rest_framework.response import Response
 from api_connector.error_codes import (
     ALIAS_DUPLICATE,
     CREDENTIAL_ENCRYPTION_FAILED,
+    PREVIEW_FETCH_FAILED,
     SCHEMA_INFERENCE_FAILED,
     SCHEMA_INFERENCE_NO_RECORDS,
     TEST_HTTP_FAILURE,
@@ -26,6 +28,7 @@ from api_connector.serializers.endpoint import (
     EndpointCreateSerializer,
     EndpointReadSerializer,
     EndpointUpdateSerializer,
+    PreviewRequestSerializer,
 )
 from api_connector.serializers.pagination_config import (
     PaginationConfigReadSerializer,
@@ -35,6 +38,17 @@ from api_connector.serializers.schema_field import (
     SchemaFieldBulkUpdateSerializer,
     SchemaFieldReadSerializer,
     SchemaFieldUpdateSerializer,
+)
+from api_connector.services.auth.registry import auth_handler_registry
+from api_connector.services.data_preview import (
+    DataPreviewService,
+    PreviewNoFieldsError,
+)
+from api_connector.services.encryption import encryption_service
+from api_connector.services.http_exceptions import (
+    HTTPNetworkError,
+    HTTPStatusError,
+    HTTPTimeoutError,
 )
 from api_connector.services.schema_inference import SchemaInferenceEngine
 
@@ -455,5 +469,118 @@ class EndpointViewSet(viewsets.ModelViewSet):
 
         return Response(
             {"updated_count": updated_count},
+            status=status.HTTP_200_OK,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="preview",
+        url_name="preview",
+    )
+    def preview(self, request, profile_pk=None, pk=None):
+        """
+        POST /api/connector/profiles/<profile_pk>/endpoints/<pk>/preview/
+
+        Fetches live API data, applies schema field selection + alias mapping,
+        returns a typed preview result with column metadata.
+
+        Request body: {"row_limit": int}  — 1–100, default 25
+        Response: {
+            "rows": [{column_name: value, ...}, ...],
+            "columns": [{"name": str, "key_path": str, "effective_type": str,
+                         "null_percentage": float, "sample_value": any}],
+            "raw_response_body": str,   # last page JSON, truncated at 50KB
+            "total_fetched": int,
+            "has_more": bool,
+        }
+
+        Security (SSRF): makes outbound HTTP. Phase 8 audit must evaluate RFC 1918 blocking.
+        Never logs rows, raw_response_body, or credential values (OWASP A09).
+        """
+
+        # Validate row_limit before touching DB or network
+        request_serializer = PreviewRequestSerializer(data=request.data)
+        request_serializer.is_valid(raise_exception=True)
+        row_limit: int = request_serializer.validated_data["row_limit"]
+
+        endpoint = self.get_object()
+        profile = endpoint.connection_profile
+
+        # Decrypt credentials
+        try:
+            credentials = encryption_service.decrypt_to_dict(
+                profile.auth_config.encrypted_credentials
+            )
+            credentials["_profile_id"] = profile.pk
+        except (InvalidToken, Exception):
+            return Response(
+                {
+                    "error_code": CREDENTIAL_ENCRYPTION_FAILED,
+                    "message": "Could not decrypt profile credentials.",
+                    "detail": {},
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        auth_handler = auth_handler_registry.get(profile.auth_type)
+        service = DataPreviewService()
+
+        try:
+            result = service.preview(
+                endpoint=endpoint,
+                auth_handler=auth_handler,
+                credentials=credentials,
+                row_limit=row_limit,
+            )
+        except PreviewNoFieldsError as exc:
+            return Response(
+                {
+                    "error_code": SCHEMA_INFERENCE_NO_RECORDS,
+                    "message": str(exc),
+                    "detail": {},
+                },
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+        except (HTTPStatusError, HTTPTimeoutError, HTTPNetworkError) as exc:
+            return Response(
+                {
+                    "error_code": PREVIEW_FETCH_FAILED,
+                    "message": f"API request failed during preview: {exc}",
+                    "detail": {},
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception:
+            logger.exception(
+                "Unexpected error during preview for endpoint=%s", endpoint.pk
+            )
+            return Response(
+                {
+                    "error_code": "API_CONN_099",
+                    "message": "An unexpected error occurred during the data preview.",
+                    "detail": {},
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        # Assemble response — no ModelSerializer (rows have dynamic aliased keys)
+        return Response(
+            {
+                "rows": result.rows,
+                "columns": [
+                    {
+                        "name": c.name,
+                        "key_path": c.key_path,
+                        "effective_type": c.effective_type,
+                        "null_percentage": c.null_percentage,
+                        "sample_value": c.sample_value,
+                    }
+                    for c in result.columns
+                ],
+                "raw_response_body": result.raw_response_body,
+                "total_fetched": result.total_fetched,
+                "has_more": result.has_more,
+            },
             status=status.HTTP_200_OK,
         )

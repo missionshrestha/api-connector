@@ -184,7 +184,7 @@ class SchemaInferenceEngine:
         engine = PaginationEngine()
         records: list[dict] = []
 
-        for page_records in engine.paginate(
+        for page_records, _raw_body in engine.paginate(
             endpoint=endpoint,
             auth_handler=auth_handler,
             credentials=credentials,

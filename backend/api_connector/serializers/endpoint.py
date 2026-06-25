@@ -280,3 +280,19 @@ class EndpointUpdateSerializer(serializers.ModelSerializer):
                 )
 
         return data
+
+
+class PreviewRequestSerializer(serializers.Serializer):
+    """
+    Validates the request body for POST .../endpoints/<pk>/preview/.
+
+    row_limit: integer 1–100, defaulting to 25.
+    Validation happens before any DB or HTTP access — prevents large unintended fetches.
+    """
+
+    row_limit = serializers.IntegerField(
+        min_value=1,
+        max_value=100,
+        default=25,
+        required=False,
+    )
