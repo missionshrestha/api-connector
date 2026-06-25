@@ -14,13 +14,14 @@ Covers the 7 scenarios most likely to cause issues in real-world API integration
 All HTTP calls mocked — zero real outbound requests.
 Engine yields (records, body) tuples per P7.A-01.
 """
+
 from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
 from django.utils import timezone
 
-from api_connector.models import AuthType, OAuthToken, TokenType
+from api_connector.models import AuthType, TokenType
 from api_connector.services.encryption import encryption_service
 from api_connector.services.pagination.engine import PaginationEngineError
 from api_connector.services.pagination.strategies import (
@@ -33,16 +34,18 @@ from tests.factories import (
     ConnectionProfileFactory,
     EndpointFactory,
     OAuthTokenFactory,
-    PaginationConfigFactory,
     SchemaFieldFactory,
 )
 
 # ── Helper: make_engine_pages ─────────────────────────────────────────────────
 
+
 def make_engine_gen(pages_with_bodies):
     """Return a callable that yields (records, body) tuples — matches P7.A-01 engine."""
+
     def _gen(*args, **kwargs):
         yield from pages_with_bodies
+
     return _gen
 
 
@@ -58,6 +61,7 @@ def make_profile_endpoint(auth_type="none"):
 
 # ── Edge Case 1: Empty API Response ──────────────────────────────────────────
 
+
 @pytest.mark.django_db
 class TestEmptyApiResponse:
     """
@@ -70,7 +74,10 @@ class TestEmptyApiResponse:
         profile, endpoint = make_profile_endpoint()
 
         with patch("api_connector.views.endpoint.SchemaInferenceEngine") as mock_cls:
-            from api_connector.services.schema_inference.types import SchemaInferenceNoRecordsError
+            from api_connector.services.schema_inference.types import (
+                SchemaInferenceNoRecordsError,
+            )
+
             mock_engine = MagicMock()
             mock_engine.infer.side_effect = SchemaInferenceNoRecordsError(
                 "No records found. Verify the data_root_path is correct."
@@ -89,12 +96,18 @@ class TestEmptyApiResponse:
 
     def test_empty_records_creates_no_schema_fields(self, api_client):
         from api_connector.models import SchemaField
+
         profile, endpoint = make_profile_endpoint()
         initial_count = SchemaField.objects.filter(endpoint=endpoint).count()
 
         with patch("api_connector.views.endpoint.SchemaInferenceEngine") as mock_cls:
-            from api_connector.services.schema_inference.types import SchemaInferenceNoRecordsError
-            mock_cls.return_value.infer.side_effect = SchemaInferenceNoRecordsError("No records")
+            from api_connector.services.schema_inference.types import (
+                SchemaInferenceNoRecordsError,
+            )
+
+            mock_cls.return_value.infer.side_effect = SchemaInferenceNoRecordsError(
+                "No records"
+            )
 
             api_client.post(
                 f"/api/connector/profiles/{profile.pk}/endpoints/{endpoint.pk}/schema/infer/",
@@ -107,6 +120,7 @@ class TestEmptyApiResponse:
 
 # ── Edge Case 2: Non-JSON API Response ───────────────────────────────────────
 
+
 @pytest.mark.django_db
 class TestNonJsonResponse:
     """
@@ -114,11 +128,16 @@ class TestNonJsonResponse:
     structured 400 errors — not 500 — from both inference and preview.
     """
 
-    def test_inference_non_json_returns_400(self, api_client, assert_no_credential_leak):
+    def test_inference_non_json_returns_400(
+        self, api_client, assert_no_credential_leak
+    ):
         profile, endpoint = make_profile_endpoint()
 
         with patch("api_connector.views.endpoint.SchemaInferenceEngine") as mock_cls:
-            from api_connector.services.schema_inference.types import SchemaInferenceError
+            from api_connector.services.schema_inference.types import (
+                SchemaInferenceError,
+            )
+
             mock_cls.return_value.infer.side_effect = SchemaInferenceError(
                 "API returned non-JSON response at page 1. Verify endpoint URL is correct."
             )
@@ -129,18 +148,24 @@ class TestNonJsonResponse:
                 format="json",
             )
 
-        assert response.status_code == 400, f"Expected 400 (not 500), got {response.status_code}"
+        assert response.status_code == 400, (
+            f"Expected 400 (not 500), got {response.status_code}"
+        )
         assert response.data["error_code"] == "API_CONN_050"
         assert "500" not in str(response.status_code)
         assert_no_credential_leak(response)
 
-    def test_preview_pagination_engine_error_returns_400(self, api_client, assert_no_credential_leak):
+    def test_preview_pagination_engine_error_returns_400(
+        self, api_client, assert_no_credential_leak
+    ):
         """
         PaginationEngineError (e.g., JSON parse failure) must return 400 from preview,
         not 500. This verifies the P8.C-02 fix is in place.
         """
         profile, endpoint = make_profile_endpoint()
-        SchemaFieldFactory(endpoint=endpoint, key_path="id", include=True, inferred_type="integer")
+        SchemaFieldFactory(
+            endpoint=endpoint, key_path="id", include=True, inferred_type="integer"
+        )
 
         with patch("api_connector.views.endpoint.DataPreviewService") as mock_svc_cls:
             mock_svc = MagicMock()
@@ -155,7 +180,9 @@ class TestNonJsonResponse:
                 format="json",
             )
 
-        assert response.status_code == 400, f"Expected 400 (not 500), got {response.status_code}"
+        assert response.status_code == 400, (
+            f"Expected 400 (not 500), got {response.status_code}"
+        )
         assert response.data["error_code"] == "API_CONN_053"
         assert_no_credential_leak(response)
 
@@ -163,7 +190,10 @@ class TestNonJsonResponse:
         profile, endpoint = make_profile_endpoint()
 
         with patch("api_connector.views.endpoint.SchemaInferenceEngine") as mock_cls:
-            from api_connector.services.schema_inference.types import SchemaInferenceError
+            from api_connector.services.schema_inference.types import (
+                SchemaInferenceError,
+            )
+
             mock_cls.return_value.infer.side_effect = SchemaInferenceError(
                 "API returned non-JSON response at page 1."
             )
@@ -180,6 +210,7 @@ class TestNonJsonResponse:
 
 
 # ── Edge Case 3: OffsetLimit Exact page_size on Last Page ────────────────────
+
 
 class TestOffsetLimitExactPageSize:
     """
@@ -215,9 +246,11 @@ class TestOffsetLimitExactPageSize:
         strategy.initial_params()
 
         resp = PaginatedResponse(
-            raw_headers={}, raw_body={},
+            raw_headers={},
+            raw_body={},
             records=[{"id": i} for i in range(7)],
-            page_count=2, total_fetched=27,
+            page_count=2,
+            total_fetched=27,
         )
         assert strategy.next_params(resp) is None
 
@@ -240,9 +273,8 @@ class TestOffsetLimitExactPageSize:
             json={"data": []},
         )
 
-        from api_connector.services.pagination.engine import PaginationEngine
         from api_connector.services.auth.handlers.none_handler import NoneAuthHandler
-        from api_connector.services.pagination.types import SafetyConfig
+        from api_connector.services.pagination.engine import PaginationEngine
 
         # We need a minimal Endpoint mock for the engine
         mock_endpoint = MagicMock()
@@ -280,6 +312,7 @@ class TestOffsetLimitExactPageSize:
 
 
 # ── Edge Case 4: OAuth AC Refresh Token Revoked ───────────────────────────────
+
 
 @pytest.mark.django_db
 class TestOAuthACRefreshRevoked:
@@ -335,7 +368,9 @@ class TestOAuthACRefreshRevoked:
     ):
         profile = self._create_expired_oauth_ac_profile()
         endpoint = EndpointFactory(connection_profile=profile, path="/items")
-        SchemaFieldFactory(endpoint=endpoint, key_path="id", include=True, inferred_type="integer")
+        SchemaFieldFactory(
+            endpoint=endpoint, key_path="id", include=True, inferred_type="integer"
+        )
 
         response = api_client.post(
             f"/api/connector/profiles/{profile.pk}/endpoints/{endpoint.pk}/preview/",
@@ -359,20 +394,20 @@ class TestOAuthACRefreshRevoked:
 
         with (
             patch("socket.getaddrinfo", return_value=[(2, 1, 6, "", ("1.2.3.4", 0))]),
-        ):
-            from api_connector.services.http_exceptions import HTTPStatusError
-
-            with patch(
+            patch(
                 "api_connector.services.connection_test.service.BaseHTTPClient.get",
                 return_value=MagicMock(status_code=200),
-            ):
-                response = api_client.post(
-                    f"/api/connector/profiles/{profile.pk}/test/",
-                    data={},
-                    format="json",
-                )
+            ),
+        ):
+            response = api_client.post(
+                f"/api/connector/profiles/{profile.pk}/test/",
+                data={},
+                format="json",
+            )
 
-        assert response.status_code == 200, f"Connection test action must return 200: {response.data}"
+        assert response.status_code == 200, (
+            f"Connection test action must return 200: {response.data}"
+        )
         data = response.data
 
         assert "overall_passed" in data
@@ -389,6 +424,7 @@ class TestOAuthACRefreshRevoked:
 
 # ── Edge Case 5: Cursor Absent from Response Body ─────────────────────────────
 
+
 class TestCursorAbsent:
     """
     CursorStrategy.next_params() returns None when the cursor field is:
@@ -397,15 +433,21 @@ class TestCursorAbsent:
     But NOT when the cursor is integer 0 (valid cursor value).
     """
 
-    CS_PARAMS = {"cursor_request_param": "after", "cursor_response_path": "meta.next_cursor"}
+    CS_PARAMS = {
+        "cursor_request_param": "after",
+        "cursor_response_path": "meta.next_cursor",
+    }
 
     def test_cursor_absent_from_body_stops_pagination(self):
         strategy = CursorStrategy(self.CS_PARAMS)
 
         # meta.next_cursor is absent (not null, just missing)
         resp = PaginatedResponse(
-            raw_headers={}, raw_body={"meta": {}},
-            records=[{"id": 1}], page_count=1, total_fetched=1,
+            raw_headers={},
+            raw_body={"meta": {}},
+            records=[{"id": 1}],
+            page_count=1,
+            total_fetched=1,
         )
         result = strategy.next_params(resp)
         assert result is None, "Absent cursor must stop pagination"
@@ -414,8 +456,11 @@ class TestCursorAbsent:
         strategy = CursorStrategy(self.CS_PARAMS)
 
         resp = PaginatedResponse(
-            raw_headers={}, raw_body={"meta": {"next_cursor": None}},
-            records=[{"id": 1}], page_count=1, total_fetched=1,
+            raw_headers={},
+            raw_body={"meta": {"next_cursor": None}},
+            records=[{"id": 1}],
+            page_count=1,
+            total_fetched=1,
         )
         result = strategy.next_params(resp)
         assert result is None, "Explicit null cursor must stop pagination"
@@ -424,8 +469,11 @@ class TestCursorAbsent:
         strategy = CursorStrategy(self.CS_PARAMS)
 
         resp = PaginatedResponse(
-            raw_headers={}, raw_body={"meta": {"next_cursor": ""}},
-            records=[{"id": 1}], page_count=1, total_fetched=1,
+            raw_headers={},
+            raw_body={"meta": {"next_cursor": ""}},
+            records=[{"id": 1}],
+            page_count=1,
+            total_fetched=1,
         )
         result = strategy.next_params(resp)
         assert result is None, "Empty string cursor must stop pagination"
@@ -438,8 +486,11 @@ class TestCursorAbsent:
         strategy = CursorStrategy(self.CS_PARAMS)
 
         resp = PaginatedResponse(
-            raw_headers={}, raw_body={"meta": {"next_cursor": 0}},
-            records=[{"id": 1}], page_count=1, total_fetched=1,
+            raw_headers={},
+            raw_body={"meta": {"next_cursor": 0}},
+            records=[{"id": 1}],
+            page_count=1,
+            total_fetched=1,
         )
         result = strategy.next_params(resp)
         assert result is not None, (
@@ -455,9 +506,8 @@ class TestCursorAbsent:
             json={"data": [{"id": 1}], "meta": {}},  # cursor absent → stops
         )
 
-        from api_connector.services.pagination.engine import PaginationEngine
         from api_connector.services.auth.handlers.none_handler import NoneAuthHandler
-        from api_connector.services.pagination.types import SafetyConfig
+        from api_connector.services.pagination.engine import PaginationEngine
 
         mock_endpoint = MagicMock()
         mock_endpoint.connection_profile.base_url = "https://api.example.com"
@@ -490,6 +540,7 @@ class TestCursorAbsent:
 
 # ── Edge Case 6: Invalid data_root_path → Empty Preview (not 500) ─────────────
 
+
 @pytest.mark.django_db
 class TestInvalidDataRootPath:
     """
@@ -505,20 +556,23 @@ class TestInvalidDataRootPath:
         # Endpoint configured for "data.items" but API returns {"records": [...]}
         endpoint.data_root_path = "data.items"
         endpoint.save()
-        SchemaFieldFactory(endpoint=endpoint, key_path="id", include=True, inferred_type="integer")
-
-        # API returns valid JSON but at different path
-        pages = [([],  {"records": [{"id": 1}]})]  # extract_records_at_path("data.items") → []
+        SchemaFieldFactory(
+            endpoint=endpoint, key_path="id", include=True, inferred_type="integer"
+        )
 
         with patch("api_connector.views.endpoint.DataPreviewService") as mock_svc_cls:
-            from api_connector.services.data_preview import PreviewResult, ColumnMeta
+            from api_connector.services.data_preview import ColumnMeta, PreviewResult
+
             mock_svc = MagicMock()
             mock_svc.preview.return_value = PreviewResult(
                 rows=[],
                 columns=[
                     ColumnMeta(
-                        name="id", key_path="id", effective_type="integer",
-                        null_percentage=0.0, sample_value=None,
+                        name="id",
+                        key_path="id",
+                        effective_type="integer",
+                        null_percentage=0.0,
+                        sample_value=None,
                     )
                 ],
                 raw_response_body='{"records": [{"id": 1}]}',
@@ -547,10 +601,13 @@ class TestInvalidDataRootPath:
     ):
         """Even with 0 rows, columns metadata is returned (allows UI to show headers)."""
         profile, endpoint = make_profile_endpoint()
-        SchemaFieldFactory(endpoint=endpoint, key_path="name", include=True, inferred_type="string")
+        SchemaFieldFactory(
+            endpoint=endpoint, key_path="name", include=True, inferred_type="string"
+        )
 
         with patch("api_connector.views.endpoint.DataPreviewService") as mock_svc_cls:
-            from api_connector.services.data_preview import PreviewResult, ColumnMeta
+            from api_connector.services.data_preview import ColumnMeta, PreviewResult
+
             mock_svc = MagicMock()
             mock_svc.preview.return_value = PreviewResult(
                 rows=[],
@@ -574,6 +631,7 @@ class TestInvalidDataRootPath:
 
 # ── OAuthACState Cleanup Test ─────────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 class TestOAuthACStateCleanup:
     """
@@ -584,8 +642,10 @@ class TestOAuthACStateCleanup:
     """
 
     def test_cleanup_command_runs_without_error_on_empty_table(self):
-        from django.core.management import call_command
         from io import StringIO
+
+        from django.core.management import call_command
+
         out = StringIO()
         call_command("cleanup_oauth_ac_states", stdout=out)
         output = out.getvalue()
@@ -619,6 +679,7 @@ class TestOAuthACStateCleanup:
         assert initial_count == 3
 
         from django.core.management import call_command
+
         call_command("cleanup_oauth_ac_states")
 
         remaining = OAuthACState.objects.count()

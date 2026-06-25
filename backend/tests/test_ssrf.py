@@ -68,9 +68,13 @@ class TestValidateUrlForSsrf:
 
     @override_settings(SSRF_PROTECTION_ENABLED=True)
     def test_aws_metadata_endpoint_blocked(self):
-        with patch(
-            "socket.getaddrinfo", return_value=[(2, 1, 6, "", ("169.254.169.254", 0))]
-        ), pytest.raises(SSRFProtectionError):
+        with (
+            patch(
+                "socket.getaddrinfo",
+                return_value=[(2, 1, 6, "", ("169.254.169.254", 0))],
+            ),
+            pytest.raises(SSRFProtectionError),
+        ):
             validate_url_for_ssrf("http://169.254.169.254/latest/meta-data")
 
     @override_settings(SSRF_PROTECTION_ENABLED=True)
@@ -82,9 +86,10 @@ class TestValidateUrlForSsrf:
 
     @override_settings(SSRF_PROTECTION_ENABLED=True)
     def test_loopback_blocked(self):
-        with patch(
-            "socket.getaddrinfo", return_value=[(2, 1, 6, "", ("127.0.0.1", 0))]
-        ), pytest.raises(SSRFProtectionError):
+        with (
+            patch("socket.getaddrinfo", return_value=[(2, 1, 6, "", ("127.0.0.1", 0))]),
+            pytest.raises(SSRFProtectionError),
+        ):
             validate_url_for_ssrf("http://localhost:8080/admin")
 
     @override_settings(SSRF_PROTECTION_ENABLED=True)
@@ -112,8 +117,9 @@ class TestValidateUrlForSsrf:
     @override_settings(SSRF_PROTECTION_ENABLED=False)
     def test_error_message_does_not_expose_query_string(self):
         """Error message must not expose full URL (may contain API key as query param)."""
-        with override_settings(SSRF_PROTECTION_ENABLED=True), patch(
-            "socket.getaddrinfo", return_value=[(2, 1, 6, "", ("10.0.0.1", 0))]
+        with (
+            override_settings(SSRF_PROTECTION_ENABLED=True),
+            patch("socket.getaddrinfo", return_value=[(2, 1, 6, "", ("10.0.0.1", 0))]),
         ):
             with pytest.raises(SSRFProtectionError) as exc_info:
                 validate_url_for_ssrf("https://internal.host/api?api_key=SECRET123")

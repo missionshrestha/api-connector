@@ -1,6 +1,6 @@
 # backend/tests/test_encryption.py
 import pytest
-from cryptography.fernet import InvalidToken
+from cryptography.fernet import Fernet, InvalidToken
 from django.core.exceptions import ImproperlyConfigured
 
 from api_connector.services.encryption import EncryptionService
@@ -60,6 +60,58 @@ def test_invalid_encryption_key_raises_improperly_configured(settings):
     service = EncryptionService()
     with pytest.raises(ImproperlyConfigured, match="ENCRYPTION_KEY"):
         service.encrypt("anything")
+
+
+# ── Key-rotation primitives (ADR-005) ──────────────────────────────────────────
+
+# Two distinct, well-formed Fernet keys for these tests.
+KEY_A = Fernet.generate_key().decode()
+KEY_B = Fernet.generate_key().decode()
+
+
+def test_validate_key_accepts_valid_key():
+    EncryptionService().validate_key(KEY_A)  # must not raise
+
+
+def test_validate_key_rejects_malformed_key():
+    with pytest.raises(ImproperlyConfigured, match="Invalid Fernet key"):
+        EncryptionService().validate_key("not-a-valid-fernet-key")
+
+
+def test_is_decryptable_true_for_matching_key():
+    ciphertext = Fernet(KEY_A.encode()).encrypt(b"secret").decode()
+    assert EncryptionService().is_decryptable(ciphertext, KEY_A) is True
+
+
+def test_is_decryptable_false_for_wrong_key():
+    ciphertext = Fernet(KEY_A.encode()).encrypt(b"secret").decode()
+    # Wrong key must return False, not raise
+    assert EncryptionService().is_decryptable(ciphertext, KEY_B) is False
+
+
+def test_reencrypt_round_trips_under_new_key():
+    ciphertext = Fernet(KEY_A.encode()).encrypt(b'{"client_id": "abc"}').decode()
+    rotated = EncryptionService().reencrypt(ciphertext, KEY_A, KEY_B)
+    # Original key can no longer read it; new key can
+    assert EncryptionService().is_decryptable(rotated, KEY_A) is False
+    assert Fernet(KEY_B.encode()).decrypt(rotated.encode()) == b'{"client_id": "abc"}'
+
+
+def test_reencrypt_raises_invalid_token_for_wrong_old_key():
+    from api_connector.services.encryption import InvalidToken
+
+    ciphertext = Fernet(KEY_A.encode()).encrypt(b"secret").decode()
+    with pytest.raises(InvalidToken):
+        EncryptionService().reencrypt(ciphertext, KEY_B, KEY_A)
+
+
+def test_invalid_token_is_reexported_from_encryption_module():
+    """Callers catch decryption failures via our module, not cryptography (ADR-005)."""
+    from cryptography.fernet import InvalidToken as FernetInvalidToken
+
+    from api_connector.services.encryption import InvalidToken
+
+    assert InvalidToken is FernetInvalidToken
 
 
 # ── Singleton verification ─────────────────────────────────────────────────────

@@ -2,10 +2,15 @@
 import json
 import logging
 
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 from django.core.exceptions import ImproperlyConfigured
 
 logger = logging.getLogger("api_connector.encryption")
+
+# Re-exported so callers (e.g. the key-rotation command) can catch decryption
+# failures without importing `cryptography.fernet` directly — keeping ADR-005's
+# "Fernet lives only in encryption.py" rule intact.
+__all__ = ["EncryptionService", "InvalidToken", "encryption_service"]
 
 
 class EncryptionService:
@@ -70,6 +75,42 @@ class EncryptionService:
         ciphertext = blob["blob"]
         plaintext = self.decrypt(ciphertext)
         return json.loads(plaintext)
+
+    # ── Key-rotation primitives (ADR-005) ─────────────────────────────────────
+    # Rotation is the one operation that needs TWO keys at once, which the
+    # singleton (bound to settings.ENCRYPTION_KEY) cannot express. Rather than
+    # let `rotate_encryption_key` import Fernet directly, these helpers keep all
+    # Fernet construction in this file. Keys are passed in as strings.
+
+    @staticmethod
+    def _fernet_for_key(key: str) -> Fernet:
+        """Build a Fernet for an explicit key string. Raises ImproperlyConfigured on a malformed key."""
+        try:
+            return Fernet(key.encode())
+        except (ValueError, Exception) as exc:
+            raise ImproperlyConfigured("Invalid Fernet key") from exc
+
+    def validate_key(self, key: str) -> None:
+        """Verify a key string is a well-formed Fernet key. Raises ImproperlyConfigured otherwise."""
+        self._fernet_for_key(key)
+
+    def is_decryptable(self, ciphertext: str, key: str) -> bool:
+        """Return True if ciphertext decrypts under key. Used by rotation dry-runs (never raises InvalidToken)."""
+        try:
+            self._fernet_for_key(key).decrypt(ciphertext.encode("utf-8"))
+            return True
+        except InvalidToken:
+            return False
+
+    def reencrypt(self, ciphertext: str, old_key: str, new_key: str) -> str:
+        """Decrypt ciphertext with old_key and re-encrypt under new_key.
+
+        For key rotation only. Plaintext bytes are never decoded to str or logged.
+        Raises InvalidToken if ciphertext cannot be decrypted with old_key.
+        """
+        old = self._fernet_for_key(old_key)
+        new = self._fernet_for_key(new_key)
+        return new.encrypt(old.decrypt(ciphertext.encode("utf-8"))).decode("utf-8")
 
 
 # Module-level singleton — loaded once per process.

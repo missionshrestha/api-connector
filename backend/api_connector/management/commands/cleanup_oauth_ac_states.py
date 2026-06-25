@@ -12,6 +12,7 @@ Records deleted:
 Records preserved:
   - used=False AND expires_at > now              [active authorization flows]
 """
+
 from datetime import timedelta
 
 from django.core.management.base import BaseCommand
@@ -41,9 +42,7 @@ class Command(BaseCommand):
         ).delete()[0]
 
         # Condition B: expired records (regardless of used flag) older than retention window
-        deleted_expired = OAuthACState.objects.filter(
-            expires_at__lt=cutoff
-        ).delete()[0]
+        deleted_expired = OAuthACState.objects.filter(expires_at__lt=cutoff).delete()[0]
 
         total_deleted = deleted_used + deleted_expired
 
@@ -58,4 +57,6 @@ class Command(BaseCommand):
         active_count = OAuthACState.objects.filter(
             used=False, expires_at__gt=timezone.now()
         ).count()
-        self.stdout.write(f"Active (in-progress) OAuthACState records remaining: {active_count}")
+        self.stdout.write(
+            f"Active (in-progress) OAuthACState records remaining: {active_count}"
+        )
