@@ -50,6 +50,9 @@ from api_connector.services.http_exceptions import (
     HTTPStatusError,
     HTTPTimeoutError,
 )
+from api_connector.services.oauth_ac_exceptions import (
+    OAuthACReauthorizationRequired,
+)
 from api_connector.services.pagination.engine import PaginationEngineError
 from api_connector.services.schema_inference import SchemaInferenceEngine
 
@@ -557,6 +560,11 @@ class EndpointViewSet(viewsets.ModelViewSet):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        except OAuthACReauthorizationRequired:
+            # Let custom_exception_handler map this to 401 / API_CONN_041,
+            # matching schema_infer. Must re-raise BEFORE the bare Exception
+            # catch below, which would otherwise mask it as a 500.
+            raise
         except Exception:
             logger.exception(
                 "Unexpected error during preview for endpoint=%s", endpoint.pk

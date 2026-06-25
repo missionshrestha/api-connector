@@ -45,14 +45,14 @@ STEP_ERROR_MESSAGES: dict[tuple[str, str], StepErrorMessage] = {
     ),
     # ── Network Connectivity ──────────────────────────────────────────────────
     ("network_connectivity", "connection_refused"): StepErrorMessage(
-        message="Connection refused at {url}.",
+        message="Could not connect to {url}.",
         suggested_action=(
             "Verify the Base URL is correct and the API server is running. "
             "Check that the port (if specified) is open."
         ),
     ),
     ("network_connectivity", "ssl_error"): StepErrorMessage(
-        message="TLS/SSL certificate error connecting to {url}.",
+        message="Security certificate error connecting to {url}. The server's certificate could not be verified.",
         suggested_action=(
             "The server's certificate is invalid or self-signed. "
             "Disable 'Verify SSL Certificate' in the profile if this is expected, "
@@ -96,10 +96,9 @@ STEP_ERROR_MESSAGES: dict[tuple[str, str], StepErrorMessage] = {
         ),
     ),
     ("auth_injection", "credentials_corrupt"): StepErrorMessage(
-        message="The stored credentials could not be decrypted.",
+        message="The stored credentials could not be read. They may have been corrupted.",
         suggested_action=(
-            "The credential data may be corrupt. Open the profile, re-enter your "
-            "credentials, and save before testing again."
+            "Open the profile, re-enter your credentials, and save before testing again."
         ),
     ),
     # ── HTTP Response ─────────────────────────────────────────────────────────
