@@ -51,7 +51,6 @@ from api_connector.services.http_exceptions import (
     HTTPTimeoutError,
 )
 from api_connector.services.pagination.engine import PaginationEngineError
-
 from api_connector.services.schema_inference import SchemaInferenceEngine
 
 logger = logging.getLogger("api_connector.views.endpoint")
@@ -544,7 +543,12 @@ class EndpointViewSet(viewsets.ModelViewSet):
                 },
                 status=status.HTTP_422_UNPROCESSABLE_ENTITY,
             )
-        except (HTTPStatusError, HTTPTimeoutError, HTTPNetworkError, PaginationEngineError) as exc:
+        except (
+            HTTPStatusError,
+            HTTPTimeoutError,
+            HTTPNetworkError,
+            PaginationEngineError,
+        ) as exc:
             return Response(
                 {
                     "error_code": PREVIEW_FETCH_FAILED,

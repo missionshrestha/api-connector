@@ -69,7 +69,10 @@ def custom_exception_handler(exc, context) -> Response | None:
     # Covers: schema_infer, preview, detect_data_root, any future action
     # that calls OAuthACAuthHandler.prepare_request() with expired/revoked tokens.
     try:
-        from api_connector.services.oauth_ac_exceptions import OAuthACReauthorizationRequired
+        from api_connector.services.oauth_ac_exceptions import (
+            OAuthACReauthorizationRequired,
+        )
+
         if isinstance(exc, OAuthACReauthorizationRequired):
             return _make_error_response(
                 error_code=OAUTH_AC_REAUTHORIZATION_REQUIRED,
@@ -77,8 +80,9 @@ def custom_exception_handler(exc, context) -> Response | None:
                 detail={"reason": exc.reason},
                 http_status=status.HTTP_401_UNAUTHORIZED,
             )
-    
+
         from api_connector.services.ssrf import SSRFProtectionError
+
         if isinstance(exc, SSRFProtectionError):
             return _make_error_response(
                 error_code=VALIDATION_ERROR,
@@ -86,8 +90,8 @@ def custom_exception_handler(exc, context) -> Response | None:
                 detail={"protection": "SSRF_PROTECTION_ENABLED is active"},
                 http_status=status.HTTP_400_BAD_REQUEST,
             )
-        
-    except ImportError: 
+
+    except ImportError:
         pass  # Module not yet available (shouldn't happen in production)
 
     # ── DRF Validation Error ──────────────────────────────────────────────────

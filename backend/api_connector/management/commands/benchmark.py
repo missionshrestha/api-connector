@@ -12,12 +12,13 @@ SAFETY: Refuses to run with DEBUG=False (production guard).
         Benchmark records are created in the active database — use dev DB only.
         Use --destructive-cleanup to delete created benchmark records after timing.
 """
-import time
-import statistics
 
+import statistics
+import time
+
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.test import Client
-from django.conf import settings
 
 
 class Command(BaseCommand):
@@ -37,7 +38,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             "--operation",
-            choices=list(self.NFR_TARGETS_MS.keys()) + ["all"],
+            choices=[*list(self.NFR_TARGETS_MS.keys()), "all"],
             default="all",
             help="Which operation to benchmark (default: all)",
         )
@@ -80,14 +81,10 @@ class Command(BaseCommand):
 
         operation = options["operation"]
         operations_to_run = (
-            list(self.NFR_TARGETS_MS.keys())
-            if operation == "all"
-            else [operation]
+            list(self.NFR_TARGETS_MS.keys()) if operation == "all" else [operation]
         )
 
         results = {}
-        created_profile_pk = None
-        created_field_pks = []
 
         self.stdout.write("\n" + "═" * 60)
         self.stdout.write("  Phase 8 NFR Benchmark")
@@ -110,23 +107,36 @@ class Command(BaseCommand):
                 elif op == "connection_test":
                     profile_id = options.get("profile_id")
                     if not profile_id:
-                        results[op] = {"status": "SKIP", "reason": "Requires --profile-id"}
+                        results[op] = {
+                            "status": "SKIP",
+                            "reason": "Requires --profile-id",
+                        }
                         continue
                     timing_ms, notes = self._benchmark_connection_test(profile_id)
                 elif op == "schema_inference":
                     profile_id = options.get("profile_id")
                     endpoint_id = options.get("endpoint_id")
                     if not profile_id or not endpoint_id:
-                        results[op] = {"status": "SKIP", "reason": "Requires --profile-id and --endpoint-id"}
+                        results[op] = {
+                            "status": "SKIP",
+                            "reason": "Requires --profile-id and --endpoint-id",
+                        }
                         continue
-                    timing_ms, notes = self._benchmark_schema_inference(profile_id, endpoint_id)
+                    timing_ms, notes = self._benchmark_schema_inference(
+                        profile_id, endpoint_id
+                    )
                 elif op == "data_preview":
                     profile_id = options.get("profile_id")
                     endpoint_id = options.get("endpoint_id")
                     if not profile_id or not endpoint_id:
-                        results[op] = {"status": "SKIP", "reason": "Requires --profile-id and --endpoint-id"}
+                        results[op] = {
+                            "status": "SKIP",
+                            "reason": "Requires --profile-id and --endpoint-id",
+                        }
                         continue
-                    timing_ms, notes = self._benchmark_data_preview(profile_id, endpoint_id)
+                    timing_ms, notes = self._benchmark_data_preview(
+                        profile_id, endpoint_id
+                    )
                 else:
                     continue
 
@@ -143,7 +153,11 @@ class Command(BaseCommand):
         self._print_results_table(results)
         failed = [op for op, r in results.items() if r.get("passed") is False]
         if failed:
-            self.stdout.write(self.style.ERROR(f"\n✗ {len(failed)} NFR(s) MISSED: {', '.join(failed)}"))
+            self.stdout.write(
+                self.style.ERROR(
+                    f"\n✗ {len(failed)} NFR(s) MISSED: {', '.join(failed)}"
+                )
+            )
             raise SystemExit(1)
         else:
             self.stdout.write(self.style.SUCCESS("\n✓ All benchmarked NFRs PASSED\n"))
@@ -152,8 +166,8 @@ class Command(BaseCommand):
         """
         Create 50 ConnectionProfile + AuthConfig pairs, time GET /api/connector/profiles/.
         """
-        from tests.factories import ConnectionProfileFactory, AuthConfigFactory
         from api_connector.services.encryption import encryption_service
+        from tests.factories import AuthConfigFactory, ConnectionProfileFactory
 
         self.stdout.write("  Setting up 50 profiles for list benchmark...")
 
@@ -172,7 +186,9 @@ class Command(BaseCommand):
             t0 = time.perf_counter()
             response = client.get("/api/connector/profiles/")
             elapsed_ms = (time.perf_counter() - t0) * 1000
-            assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+            assert response.status_code == 200, (
+                f"Expected 200, got {response.status_code}"
+            )
             timings.append(elapsed_ms)
 
         median_ms = statistics.median(timings)
@@ -180,6 +196,7 @@ class Command(BaseCommand):
 
         if cleanup:
             from api_connector.models import ConnectionProfile
+
             ConnectionProfile.objects.filter(pk__in=created_pks).delete()
             self.stdout.write(f"  Cleaned up {len(created_pks)} benchmark profiles.")
 
@@ -195,10 +212,18 @@ class Command(BaseCommand):
             endpoint = Endpoint.objects.get(pk=endpoint_id)
             cleanup_fields = False
         else:
-            from tests.factories import ConnectionProfileFactory, EndpointFactory, AuthConfigFactory
             from api_connector.services.encryption import encryption_service
+            from tests.factories import (
+                AuthConfigFactory,
+                ConnectionProfileFactory,
+                EndpointFactory,
+            )
+
             profile = ConnectionProfileFactory()
-            AuthConfigFactory(connection_profile=profile, encrypted_credentials=encryption_service.encrypt_dict({}))
+            AuthConfigFactory(
+                connection_profile=profile,
+                encrypted_credentials=encryption_service.encrypt_dict({}),
+            )
             endpoint = EndpointFactory(connection_profile=profile, path="/benchmark")
             cleanup_fields = True
 
@@ -248,10 +273,11 @@ class Command(BaseCommand):
     def _benchmark_schema_inference(self, profile_id: int, endpoint_id: int):
         """Time POST .../schema/infer/ against a real API."""
         from api_connector.models import Endpoint
-        endpoint = Endpoint.objects.get(pk=endpoint_id)
+
+        Endpoint.objects.get(pk=endpoint_id)
         client = Client()
         t0 = time.perf_counter()
-        response = client.post(
+        client.post(
             f"/api/connector/profiles/{profile_id}/endpoints/{endpoint_id}/schema/infer/",
             content_type="application/json",
             data="{}",
@@ -264,6 +290,7 @@ class Command(BaseCommand):
         """Time POST .../preview/ with row_limit=25."""
         client = Client()
         import json
+
         t0 = time.perf_counter()
         response = client.post(
             f"/api/connector/profiles/{profile_id}/endpoints/{endpoint_id}/preview/",
@@ -275,11 +302,15 @@ class Command(BaseCommand):
         return int(elapsed_ms), notes
 
     def _print_results_table(self, results: dict):
-        self.stdout.write(f"\n{'Operation':<22} | {'Time (ms)':>10} | {'NFR (ms)':>10} | {'Status':<8} | Notes")
+        self.stdout.write(
+            f"\n{'Operation':<22} | {'Time (ms)':>10} | {'NFR (ms)':>10} | {'Status':<8} | Notes"
+        )
         self.stdout.write("-" * 90)
         for op, r in results.items():
             if r.get("status") == "SKIP":
-                self.stdout.write(f"{op:<22} | {'—':>10} | {self.NFR_TARGETS_MS[op]:>10} | {'SKIP':<8} | {r['reason']}")
+                self.stdout.write(
+                    f"{op:<22} | {'—':>10} | {self.NFR_TARGETS_MS[op]:>10} | {'SKIP':<8} | {r['reason']}"
+                )
             elif r.get("status") == "ERROR":
                 self.stdout.write(
                     self.style.ERROR(

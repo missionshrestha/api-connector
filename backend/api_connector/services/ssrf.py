@@ -23,12 +23,12 @@ Note on DNS TOCTOU:
   at validation time and a private IP at connection time. This is an accepted
   limitation for MVP scope — document in security-audit.md.
 """
+
 import concurrent.futures
 import ipaddress
 import logging
 import socket
 import urllib.parse
-from typing import Optional
 
 from django.conf import settings
 
@@ -36,13 +36,15 @@ logger = logging.getLogger("api_connector.ssrf")
 
 # ── Blocked IP ranges ──────────────────────────────────────────────────────────
 BLOCKED_NETWORKS = [
-    ipaddress.ip_network("10.0.0.0/8"),        # RFC 1918 class A private
-    ipaddress.ip_network("172.16.0.0/12"),      # RFC 1918 class B private
-    ipaddress.ip_network("192.168.0.0/16"),     # RFC 1918 class C private
-    ipaddress.ip_network("127.0.0.0/8"),        # IPv4 loopback
-    ipaddress.ip_network("169.254.0.0/16"),     # Link-local (AWS metadata at 169.254.169.254)
-    ipaddress.ip_network("::1/128"),            # IPv6 loopback
-    ipaddress.ip_network("fc00::/7"),           # IPv6 ULA
+    ipaddress.ip_network("10.0.0.0/8"),  # RFC 1918 class A private
+    ipaddress.ip_network("172.16.0.0/12"),  # RFC 1918 class B private
+    ipaddress.ip_network("192.168.0.0/16"),  # RFC 1918 class C private
+    ipaddress.ip_network("127.0.0.0/8"),  # IPv4 loopback
+    ipaddress.ip_network(
+        "169.254.0.0/16"
+    ),  # Link-local (AWS metadata at 169.254.169.254)
+    ipaddress.ip_network("::1/128"),  # IPv6 loopback
+    ipaddress.ip_network("fc00::/7"),  # IPv6 ULA
 ]
 
 
@@ -95,7 +97,10 @@ def validate_url_for_ssrf(url: str, timeout_seconds: float = 5.0) -> None:
             resolved_ips = future.result(timeout=timeout_seconds)
     except concurrent.futures.TimeoutError:
         # DNS timeout — allow through (don't block on inability to resolve)
-        logger.warning("SSRF validation: DNS timeout for hostname '%s' — allowing through", hostname)
+        logger.warning(
+            "SSRF validation: DNS timeout for hostname '%s' — allowing through",
+            hostname,
+        )
         return
     except socket.gaierror:
         # DNS failure — allow through (httpx will handle the error)
