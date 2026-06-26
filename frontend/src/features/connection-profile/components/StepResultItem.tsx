@@ -43,7 +43,7 @@ export function StepResultItem({
   if (result.passed) {
     return (
       <div className="flex items-start gap-3 py-2">
-        <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
+        <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
         <div>
           <span className="text-sm font-medium">{displayName}</span>
           <p className="text-xs text-muted-foreground mt-0.5">{result.message}</p>

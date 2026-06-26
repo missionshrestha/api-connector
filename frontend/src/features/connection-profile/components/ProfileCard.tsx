@@ -1,6 +1,7 @@
 // frontend/src/features/connection-profile/components/ProfileCard.tsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ArrowRight, PlugZap, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Skeleton } from "@/shared/components/ui/skeleton";
@@ -20,38 +21,29 @@ export function ProfileCard({ profile, onDelete }: ProfileCardProps) {
 
   return (
     <>
-      <Card>
-        <CardHeader className="pb-2">
+      <Card className="transition-shadow hover:shadow-md">
+        <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <CardTitle className="text-base">{profile.name}</CardTitle>
             <AuthTypeBadge authType={profile.auth_type} />
           </div>
-          <p className="text-xs text-muted-foreground font-mono truncate">
+          <p className="truncate font-mono text-xs text-muted-foreground">
             {profile.base_url}
           </p>
         </CardHeader>
-        <CardContent className="pb-3">
+        <CardContent>
           <LastTestIndicator
             outcome={profile.last_test_outcome}
             testedAt={profile.last_test_at}
             statusCode={profile.last_test_status_code}
           />
-          <div className="flex gap-2 mt-3 flex-wrap">
-            
+          <div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-3">
             <Button
               size="sm"
-              variant="secondary"
               onClick={() => navigate(`/profiles/${profile.id}/endpoints`)}
             >
               Endpoints
-            </Button>
-
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => navigate(`/profiles/${profile.id}/edit`)}
-            >
-              Edit
+              <ArrowRight className="size-3.5" />
             </Button>
 
             <Button
@@ -59,11 +51,27 @@ export function ProfileCard({ profile, onDelete }: ProfileCardProps) {
               variant="outline"
               onClick={() => setIsTestModalOpen(true)}
             >
-              Test Connection
+              <PlugZap className="size-3.5" />
+              Test
             </Button>
 
-            <Button size="sm" variant="destructive" onClick={onDelete}>
-              Delete
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => navigate(`/profiles/${profile.id}/edit`)}
+            >
+              <Pencil className="size-3.5" />
+              Edit
+            </Button>
+
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onDelete}
+              aria-label={`Delete ${profile.name}`}
+              className="ml-auto text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 className="size-3.5" />
             </Button>
           </div>
         </CardContent>

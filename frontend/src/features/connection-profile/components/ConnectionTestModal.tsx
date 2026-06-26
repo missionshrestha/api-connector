@@ -53,13 +53,13 @@ export function ConnectionTestModal({
 
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
-      <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
-        <SheetHeader className="mb-4">
-          <SheetTitle>Test Connection</SheetTitle>
-          <SheetDescription>{profileName}</SheetDescription>
+      <SheetContent className="w-full sm:max-w-xl">
+        <SheetHeader className="border-b px-5 py-4">
+          <SheetTitle className="text-base">Test Connection</SheetTitle>
+          <SheetDescription className="font-mono text-xs">{profileName}</SheetDescription>
         </SheetHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
           {/* Test path input */}
           <div className="space-y-1">
             <Label htmlFor="test-path">Test Path (optional)</Label>

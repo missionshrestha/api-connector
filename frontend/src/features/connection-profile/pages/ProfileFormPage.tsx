@@ -1,6 +1,7 @@
 // frontend/src/features/connection-profile/pages/ProfileFormPage.tsx
 import { useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/shared/components/ui/button";
@@ -65,14 +66,8 @@ export default function ProfileFormPage() {
     }
   }, [profile, isEditMode, reset]);
 
-  const watchedAuthType = useWatch({ control, name: "auth_type" }) ?? "none";
-  const AuthFieldsComponent = AUTH_FIELDS_COMPONENT_MAP[watchedAuthType as keyof typeof AUTH_FIELDS_COMPONENT_MAP];
-
-  function handleAuthTypeChange(newType: string) {
-    setValue("auth_type", newType as ProfileFormValues["auth_type"]);
-    // Only clear credentials — preserve all other form fields
-    setValue("credentials", {});
-  }
+  const watchedAuthType = (useWatch({ control, name: "auth_type" }) ?? "none") as ProfileFormValues["auth_type"];
+  const AuthFieldsComponent = AUTH_FIELDS_COMPONENT_MAP[watchedAuthType];
 
   async function onSubmit(data: ProfileFormValues) {
     // Filter empty-string credential values before submission.
@@ -106,8 +101,15 @@ export default function ProfileFormPage() {
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-2xl">
+      <Link
+        to="/profiles"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="size-4" />
+        Profiles
+      </Link>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">
+        <h1 className="text-2xl font-semibold tracking-tight">
           {isEditMode ? `Edit ${profile?.name ?? "Profile"}` : "New Profile"}
         </h1>
         {/* TODO Phase 3: Test Connection button */}
@@ -115,8 +117,8 @@ export default function ProfileFormPage() {
 
       <form onSubmit={handleSubmit(onSubmit)} autoComplete="off" className="space-y-8">
         {/* ── Section 1: Profile Information ──────────────────────────── */}
-        <section className="space-y-4">
-          <h2 className="text-lg font-medium border-b pb-2">Profile Information</h2>
+        <section className="space-y-4 rounded-xl border bg-card p-6 shadow-sm">
+          <h2 className="text-base font-semibold border-b pb-2">Profile Information</h2>
 
           <Controller
             name="name"
@@ -201,24 +203,36 @@ export default function ProfileFormPage() {
         </section>
 
         {/* ── Section 2: Authentication ────────────────────────────────── */}
-        <section className="space-y-4">
-          <h2 className="text-lg font-medium border-b pb-2">Authentication</h2>
+        <section className="space-y-4 rounded-xl border bg-card p-6 shadow-sm">
+          <h2 className="text-base font-semibold border-b pb-2">Authentication</h2>
 
           <div className="space-y-1">
             <Label>Auth Type</Label>
-            <Select value={watchedAuthType} onValueChange={handleAuthTypeChange}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No Auth</SelectItem>
-                <SelectItem value="api_key">API Key</SelectItem>
-                <SelectItem value="bearer">Bearer Token</SelectItem>
-                <SelectItem value="basic">Basic Auth</SelectItem>
-                <SelectItem value="oauth_cc">OAuth Client Credentials</SelectItem>
-                <SelectItem value="oauth_ac">OAuth Authorization Code</SelectItem>
-              </SelectContent>
-            </Select>
+            <Controller
+              name="auth_type"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  value={field.value}
+                  onValueChange={(newType) => {
+                    field.onChange(newType);
+                    setValue("credentials", {});
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select auth type…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Auth</SelectItem>
+                    <SelectItem value="api_key">API Key</SelectItem>
+                    <SelectItem value="bearer">Bearer Token</SelectItem>
+                    <SelectItem value="basic">Basic Auth</SelectItem>
+                    <SelectItem value="oauth_cc">OAuth Client Credentials</SelectItem>
+                    <SelectItem value="oauth_ac">OAuth Authorization Code</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </div>
 
           {AuthFieldsComponent && (

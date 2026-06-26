@@ -1,5 +1,6 @@
 // frontend/src/features/connection-profile/components/ConnectionTestPanel.tsx
 import { useEffect, useRef, useState } from "react";
+import { CheckCircle2, XCircle } from "lucide-react";
 import type { APIError } from "@/shared/types";
 import {
   ALL_STEP_NAMES,
@@ -107,15 +108,20 @@ export function ConnectionTestPanel({
 
       {/* Summary row */}
       {result && !isRunning && (
-        <div className="pt-3 border-t flex items-center justify-between text-sm">
+        <div className="mt-2 pt-3 border-t flex items-center justify-between text-sm">
           <span
-            className={
+            className={`inline-flex items-center gap-1.5 font-semibold ${
               result.overall_passed
-                ? "font-semibold text-green-600 dark:text-green-400"
-                : "font-semibold text-destructive"
-            }
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-destructive"
+            }`}
           >
-            {result.overall_passed ? "✓ Test passed" : "✗ Test failed"}
+            {result.overall_passed ? (
+              <CheckCircle2 className="size-4 shrink-0" />
+            ) : (
+              <XCircle className="size-4 shrink-0" />
+            )}
+            {result.overall_passed ? "Test passed" : "Test failed"}
           </span>
           <span className="text-muted-foreground">
             Completed in {result.duration_ms}ms

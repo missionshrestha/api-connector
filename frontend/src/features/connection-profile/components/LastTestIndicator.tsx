@@ -1,4 +1,5 @@
 // frontend/src/features/connection-profile/components/LastTestIndicator.tsx
+import { CheckCircle2, MinusCircle, XCircle } from "lucide-react";
 
 interface LastTestIndicatorProps {
   outcome: boolean | null;
@@ -17,21 +18,28 @@ function formatDate(dateStr: string): string {
 export function LastTestIndicator({ outcome, testedAt, statusCode }: LastTestIndicatorProps) {
   if (outcome === null || testedAt === null) {
     return (
-      <span className="text-muted-foreground text-sm">Never tested</span>
+      <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+        <MinusCircle className="size-3.5 shrink-0" />
+        Never tested
+      </span>
     );
   }
 
   if (outcome === true) {
     return (
-      <span className="text-sm text-green-600 dark:text-green-400">
-        ✓ Passed · {formatDate(testedAt)}
+      <span className="inline-flex items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400">
+        <CheckCircle2 className="size-3.5 shrink-0" />
+        <span className="text-foreground/80">Passed · {formatDate(testedAt)}</span>
       </span>
     );
   }
 
   return (
-    <span className="text-sm text-destructive">
-      ✗ Failed{statusCode ? ` · ${statusCode}` : ""} · {formatDate(testedAt)}
+    <span className="inline-flex items-center gap-1.5 text-sm text-destructive">
+      <XCircle className="size-3.5 shrink-0" />
+      <span className="text-foreground/80">
+        Failed{statusCode ? ` · ${statusCode}` : ""} · {formatDate(testedAt)}
+      </span>
     </span>
   );
 }

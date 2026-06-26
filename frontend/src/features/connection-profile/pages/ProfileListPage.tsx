@@ -1,6 +1,7 @@
 // frontend/src/features/connection-profile/pages/ProfileListPage.tsx
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { Plus, Search } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import type { APIError } from "@/shared/types";
@@ -37,19 +38,30 @@ export default function ProfileListPage() {
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">Connection Profiles</h1>
+      <div className="mb-6 flex items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Connection Profiles</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage API connections, authentication, and endpoints.
+          </p>
+        </div>
         <Button asChild>
-          <Link to="/profiles/new">New Profile</Link>
+          <Link to="/profiles/new">
+            <Plus className="size-4" />
+            New Profile
+          </Link>
         </Button>
       </div>
 
-      <Input
-        placeholder="Search profiles…"
-        value={searchInput}
-        onChange={(e) => setSearchInput(e.target.value)}
-        className="mb-6"
-      />
+      <div className="relative mb-6">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Search profiles…"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          className="h-10 pl-9"
+        />
+      </div>
 
       {isPending && (
         <div className="grid gap-4 sm:grid-cols-2">
