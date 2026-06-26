@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>API Connector — Architecture Overview</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    width: 1600px;
+    height: 900px;
+    background: #0b0f1a;
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    display: flex;
+    align-items: stretch;
+    justify-content: stretch;
+    overflow: hidden;
+  }
+
+  .slide {
+    width: 1600px;
+    height: 900px;
+    display: flex;
+    flex-direction: column;
+    padding: 40px 52px 36px;
+    gap: 24px;
+  }
+
+  /* ── Header ── */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+  }
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #6366f1;
+    flex-shrink: 0;
+  }
+  .title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #f1f5f9;
+    letter-spacing: -0.3px;
+    white-space: nowrap;
+  }
+  .divider {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, #1e293b 0%, transparent 100%);
+  }
+  .badge-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: #475569;
+    white-space: nowrap;
+    letter-spacing: 0.3px;
+  }
+
+  /* ── Diagram ── */
+  .diagram {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-height: 0;
+  }
+
+  /* Top section: 5 stages + 4 connectors */
+  .top-row {
+    display: grid;
+    grid-template-columns: 1fr 52px 1fr 52px 200px 52px 1fr 52px 1fr;
+    gap: 0;
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* ── Stage cards ── */
+  .stage {
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  .stage-head {
+    padding: 14px 18px 12px;
+    flex-shrink: 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .stage-num {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    opacity: 0.55;
+  }
+  .stage-name {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+    line-height: 1.2;
+  }
+  .stage-sub {
+    font-size: 10.5px;
+    margin-top: 3px;
+    opacity: 0.5;
+    font-weight: 400;
+  }
+
+  .stage-body {
+    flex: 1;
+    padding: 12px 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow: hidden;
+  }
+
+  .card {
+    border-radius: 8px;
+    padding: 18px 16px 18px 18px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .card-title {
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .card-detail {
+    font-size: 12px;
+    line-height: 1.6;
+    opacity: 0.7;
+  }
+
+  /* ── Connector arrows ── */
+  .connector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0 4px;
+  }
+  .conn-label {
+    font-size: 9.5px;
+    color: #4a5568;
+    text-align: center;
+    line-height: 1.4;
+    letter-spacing: 0.2px;
+  }
+  .conn-line {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    position: relative;
+  }
+  .conn-line::before {
+    content: '';
+    position: absolute;
+    left: 0; right: 10px;
+    height: 1.5px;
+    background: linear-gradient(to right, #253d5e, #4a5568);
+  }
+  .conn-line::after {
+    content: '▶';
+    position: absolute;
+    right: 0;
+    font-size: 10px;
+    color: #4a5568;
+  }
+
+  /* ── Stage colour themes ── */
+
+  /* 1 Configure — Slate */
+  .st-config { background: #131c2e; border: 1px solid #1e3048; }
+  .st-config .stage-head { background: #0d1525; border-bottom: 1px solid #1e3048; }
+  .st-config .stage-num { color: #64748b; }
+  .st-config .stage-name { color: #e2e8f0; }
+  .st-config .stage-sub { color: #4a6080; }
+  .st-config .card { background: #1c2d45; border: 1px solid #253d5e; border-left: 3px solid #3b5278; }
+  .st-config .card-title { color: #c8d8ec; }
+  .st-config .card-detail { color: #6e8aa8; }
+
+  /* 2 Authenticate — Indigo */
+  .st-auth { background: #1a1740; border: 1px solid #312e80; }
+  .st-auth .stage-head { background: #13103a; border-bottom: 1px solid #312e80; }
+  .st-auth .stage-num { color: #818cf8; }
+  .st-auth .stage-name { color: #e0e7ff; }
+  .st-auth .stage-sub { color: #5055b0; }
+  .st-auth .card { background: #242061; border: 1px solid #3730a3; border-left: 3px solid #6366f1; }
+  .st-auth .card-title { color: #c7d2fe; }
+  .st-auth .card-detail { color: #7c82d4; }
+
+  /* 3 External API — Purple */
+  .st-api { background: #1e1040; border: 1.5px solid #7c3aed; }
+  .st-api .stage-head { background: #170c35; border-bottom: 1px solid #7c3aed; }
+  .st-api .stage-num { color: #c4b5fd; }
+  .st-api .stage-name { color: #ede9fe; }
+  .st-api .stage-sub { color: #7e40c0; }
+  .st-api .card { background: #2a1460; border: 1px solid #7c3aed; border-left: 3px solid #a855f7; }
+  .st-api .card-title { color: #ddd6fe; }
+  .st-api .card-detail { color: #9c72e0; }
+
+  /* 4 Collect — Teal */
+  .st-collect { background: #0c2030; border: 1px solid #155e75; }
+  .st-collect .stage-head { background: #071520; border-bottom: 1px solid #155e75; }
+  .st-collect .stage-num { color: #2dd4bf; }
+  .st-collect .stage-name { color: #ccfbf1; }
+  .st-collect .stage-sub { color: #0c6e6e; }
+  .st-collect .card { background: #143040; border: 1px solid #1d7a8a; border-left: 3px solid #0891b2; }
+  .st-collect .card-title { color: #7dd3e8; }
+  .st-collect .card-detail { color: #2a8fa0; }
+
+  /* 5 Pipeline — Emerald */
+  .st-pipe { background: #0a2018; border: 1px solid #166534; }
+  .st-pipe .stage-head { background: #051510; border-bottom: 1px solid #166534; }
+  .st-pipe .stage-num { color: #34d399; }
+  .st-pipe .stage-name { color: #d1fae5; }
+  .st-pipe .stage-sub { color: #0b6040; }
+  .st-pipe .card { background: #143525; border: 1px solid #1c7a45; border-left: 3px solid #10b981; }
+  .st-pipe .card-title { color: #6ee7b7; }
+  .st-pipe .card-detail { color: #268a5a; }
+
+  /* ── Footer ── */
+  .footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .footer-text {
+    font-size: 11px;
+    color: #1e293b;
+    letter-spacing: 0.5px;
+  }
+  .footer-sep { margin: 0 10px; color: #0f172a; }
+</style>
+</head>
+<body>
+<div class="slide">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="dot"></div>
+    <span class="title">API Connector — Architecture Overview</span>
+    <div class="divider"></div>
+    <span class="badge-label">DataFuseAI Platform · High-Level Overview</span>
+  </div>
+
+  <!-- Diagram -->
+  <div class="diagram">
+    <div class="top-row">
+
+      <!-- ① Configure -->
+      <div class="stage st-config">
+        <div class="stage-head">
+          <div class="stage-num">① Configure</div>
+          <div class="stage-name">Set Up<br/>the Source</div>
+          <div class="stage-sub">One-time per API</div>
+        </div>
+        <div class="stage-body">
+          <div class="card">
+            <div class="card-title">Connection Profile</div>
+            <div class="card-detail">Named source that groups all settings for one API. Stores the base URL, authentication type, default headers, SSL verification, and request timeout.</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Endpoints</div>
+            <div class="card-detail">Each endpoint is one URL path within the API — equivalent to a table in a database source. Configured with HTTP method, query params, path variables, and where the data lives in the response.</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Pagination Config</div>
+            <div class="card-detail">Tells the engine how to page through the data: which strategy to use, how large each page is, and hard limits on total pages and records fetched.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- → -->
+      <div class="connector">
+        <span class="conn-label">config</span>
+        <div class="conn-line"></div>
+      </div>
+
+      <!-- ② Authenticate -->
+      <div class="stage st-auth">
+        <div class="stage-head">
+          <div class="stage-num">② Authenticate</div>
+          <div class="stage-name">Secure the<br/>Connection</div>
+          <div class="stage-sub">At runtime</div>
+        </div>
+        <div class="stage-body">
+          <div class="card">
+            <div class="card-title">6 Auth Types Supported</div>
+            <div class="card-detail">No Auth · API Key (header or query) · Basic Auth · Bearer Token · OAuth Client Credentials · OAuth Authorization Code. The right handler is selected automatically per profile.</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Credential Vault</div>
+            <div class="card-detail">All secrets are encrypted at rest. Credentials are decrypted in memory only at request time, injected into the HTTP call, and never written to logs or API responses.</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Connection Validator</div>
+            <div class="card-detail">6-step diagnostic run on demand: DNS resolution → network connectivity → auth injection → HTTP response → format detection → response sample. Each step returns a plain-English result.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- → Authenticated Request → -->
+      <div class="connector">
+        <span class="conn-label">authenticated<br/>request</span>
+        <div class="conn-line"></div>
+      </div>
+
+      <!-- ③ External API (centre, narrower) -->
+      <div class="stage st-api">
+        <div class="stage-head">
+          <div class="stage-num">③ External API</div>
+          <div class="stage-name">Public or<br/>Authenticated</div>
+          <div class="stage-sub">REST · JSON</div>
+        </div>
+        <div class="stage-body">
+          <div class="card">
+            <div class="card-title">Any REST API</div>
+            <div class="card-detail">Public or credentialed. NASA · OpenWeatherMap · financial data · government portals · IoT feeds · SaaS platforms. If it speaks HTTP and returns JSON, it connects.</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Returns Paginated Data</div>
+            <div class="card-detail">Most APIs split large datasets across multiple pages. One request gets you one slice — the pagination engine handles fetching the rest automatically, regardless of strategy.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ← Paginated Response ← -->
+      <div class="connector">
+        <span class="conn-label">paginated<br/>response</span>
+        <div class="conn-line"></div>
+      </div>
+
+      <!-- ④ Collect -->
+      <div class="stage st-collect">
+        <div class="stage-head">
+          <div class="stage-num">④ Collect</div>
+          <div class="stage-name">Fetch All<br/>the Data</div>
+          <div class="stage-sub">Automatic</div>
+        </div>
+        <div class="stage-body">
+          <div class="card">
+            <div class="card-title">Pagination Engine</div>
+            <div class="card-detail">Handles all 6 strategies: Offset-Limit · Page-Size · Cursor · Next URL · Link Header · None. Fetches every page automatically until the dataset is complete.</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Safety Limits</div>
+            <div class="card-detail">Hard caps on total pages and records are enforced unconditionally. Failed requests are retried with exponential backoff. Runaway pagination is impossible.</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Response Guard</div>
+            <div class="card-detail">Each response is validated before processing. Binary files, executables, and non-JSON content are rejected at the boundary — nothing harmful enters the pipeline.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- → -->
+      <div class="connector">
+        <span class="conn-label">all pages<br/>collected</span>
+        <div class="conn-line"></div>
+      </div>
+
+      <!-- ⑤ Pipeline -->
+      <div class="stage st-pipe">
+        <div class="stage-head">
+          <div class="stage-num">⑤ Your Pipeline</div>
+          <div class="stage-name">Same as Any<br/>Other Source</div>
+          <div class="stage-sub">No special handling</div>
+        </div>
+        <div class="stage-body">
+          <div class="card">
+            <div class="card-title">Schema Inference</div>
+            <div class="card-detail">Column names and data types are auto-detected from the live API response. Handles nested JSON, arrays, nulls, and mixed types. No manual schema definition needed.</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Field Selection</div>
+            <div class="card-detail">Users review discovered columns, select which to include, set display names, and override inferred types if needed. The endpoint then looks exactly like a database table.</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Transform → Load</div>
+            <div class="card-detail">Data flows into the existing transformation and loading pipeline unchanged. RDBMS · NoSQL · S3 · and more. No special handling required downstream.</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /top-row -->
+  </div><!-- /diagram -->
+
+  <!-- Footer -->
+  <div class="footer">
+    <span class="footer-text">DataFuseAI · API Connectors POC · Mission Shrestha</span>
+  </div>
+
+</div><!-- /slide -->
+</body>
+</html>

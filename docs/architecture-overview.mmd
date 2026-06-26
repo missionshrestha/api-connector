@@ -1,0 +1,44 @@
+flowchart LR
+
+    subgraph CONF["  ①  Configure  "]
+        direction TB
+        A1["API URL · Auth Type"]
+        A2["Endpoints · Pagination Strategy"]
+        A3["SSL · Timeout · Headers"]
+    end
+
+    subgraph AUTH["  ②  Authenticate Securely  "]
+        direction TB
+        B1["API Key · Basic Auth · Bearer Token"]
+        B2["OAuth Client Credentials · Auth Code"]
+        B3["Credentials encrypted — never logged"]
+    end
+
+    EXT[("External API")]
+
+    subgraph FETCH["  ③  Collect All Data  "]
+        direction TB
+        C1["All pages fetched automatically"]
+        C2["Offset · Page · Cursor · Next URL · Link Header"]
+        C3["Safety limits enforced · Bad responses blocked"]
+    end
+
+    subgraph SCHEMA["  ④  Structure the Data  "]
+        direction TB
+        D1["Columns and types auto-detected"]
+        D2["User reviews, selects, and names fields"]
+        D3["Looks like a table, not an API"]
+    end
+
+    subgraph PIPE["  ⑤  Your Pipeline  "]
+        direction TB
+        E1["Transform"]
+        E2["Load — RDBMS · NoSQL · S3 · and more"]
+        E3["No special handling needed"]
+    end
+
+    CONF --> AUTH
+    AUTH -->|"Authenticated Request"| EXT
+    EXT -->|"Paginated Response"| FETCH
+    FETCH --> SCHEMA
+    SCHEMA --> PIPE

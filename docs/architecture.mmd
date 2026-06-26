@@ -1,0 +1,69 @@
+flowchart TD
+
+    subgraph CONF["Configuration Layer"]
+        direction TB
+        A1["Connection Profile\nBase URL · Auth Type · Default Headers · SSL · Timeout"]
+        A2["Endpoint\nPath · HTTP Method · Query Params · Path Variables · Data Root"]
+        A3["Pagination Config\nStrategy · Page Size · Max Pages · Max Records · Retry"]
+    end
+
+    subgraph SEC["Security Layer"]
+        direction TB
+        B1["Credential Vault\nEncrypt at rest — never stored or logged in plaintext"]
+        B2["SSRF Guard\nBlock private IP ranges, loopback, and link-local addresses"]
+        B3["Response Guard\nReject non-JSON, binary, or malicious content before processing"]
+    end
+
+    subgraph CORE["Connector Core"]
+        direction TB
+        C1["Auth Handler\nNo Auth · API Key · Basic Auth · Bearer Token · OAuth CC · OAuth AC"]
+        C2["HTTP Client\nBuilds and sends the authenticated request"]
+        C3["Pagination Engine\nOffset-Limit · Page-Size · Cursor · Next URL · Link Header · None\nEnforces safety limits — max pages and max records unconditionally"]
+    end
+
+    subgraph INTEL["Intelligence Layer"]
+        direction TB
+        D1["Schema Inference Engine\nRecursively walks all response records\nDetects types, null %, nested structure, array handling"]
+        D2["Connection Validator\nDNS Resolution → Network Connectivity → Auth Injection\n→ HTTP Response → Format Detection → Response Sample"]
+    end
+
+    subgraph DOWNSTREAM["Downstream Pipeline"]
+        direction TB
+        E1["Schema Manager\nField selection · Display aliases · Type overrides"]
+        E2["Data Accumulator\nMerges all pages into a single unified dataset"]
+        E3["Transform → Load\nIdentical to any other source — RDBMS, NoSQL, S3, etc."]
+    end
+
+    EXT[("External API\nPublic or Authenticated")]
+
+    %% Configuration wiring
+    A1 -->|credentials| B1
+    A1 -->|auth type| C1
+    A2 --> C2
+    A3 --> C3
+
+    %% Runtime path — credentials
+    B1 -->|"decrypted in memory at runtime\nnever persisted in plaintext"| C1
+
+    %% Runtime path — request
+    C1 -->|auth injected into request| C2
+    C2 -->|outbound request| B2
+    B2 -->|validated request| EXT
+
+    %% Runtime path — response
+    EXT -->|response| B3
+    B3 -->|safe response| C3
+
+    %% Pagination loop
+    C3 -->|"next page needed\n(loop)"| C2
+    C3 -->|all pages collected| E2
+
+    %% Schema path
+    C3 -->|sample response for inference| D1
+    D1 --> E1
+    E1 --> E2
+    E2 --> E3
+
+    %% Validation path (dotted — separate from data flow)
+    A1 -.->|"test connection\n(on demand)"| D2
+    D2 -.-> EXT
