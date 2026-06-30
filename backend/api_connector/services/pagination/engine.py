@@ -107,17 +107,25 @@ class PaginationEngine:
         cumulative_total_fetched = 0
         overall_start = time.monotonic()
         page_params = strategy.initial_params()
+        is_post = endpoint.method == "POST"
 
         while True:
-            # Determine URL and params for this page
+            # Determine URL, params, and body for this page
             if "_next_url" in page_params:
                 # NextURL / LinkHeader sentinel — use the full URL directly
                 request_url = page_params["_next_url"]
                 request_params = {}
+                request_body = endpoint.request_body if is_post else None
             else:
                 request_url = base_url
-                # Pagination params override base endpoint params on key collision
-                request_params = {**base_query_params, **page_params}
+                if is_post:
+                    # For POST endpoints, pagination params merge into the JSON body;
+                    # endpoint query params remain as URL query params
+                    request_params = base_query_params
+                    request_body = {**(endpoint.request_body or {}), **page_params}
+                else:
+                    request_params = {**base_query_params, **page_params}
+                    request_body = None
 
             # Make request with retry
             response = self._request_with_retry(
@@ -129,6 +137,8 @@ class PaginationEngine:
                 headers=endpoint_header_dict,
                 timeout=profile.request_timeout,
                 safety=safety,
+                method=endpoint.method,
+                json_body=request_body,
             )
 
             # Parse JSON
@@ -209,9 +219,11 @@ class PaginationEngine:
         headers: dict,
         timeout: int,
         safety: SafetyConfig,
+        method: str = "GET",
+        json_body: dict | None = None,
     ) -> httpx.Response:
         """
-        Make an authenticated GET request with exponential-backoff retry.
+        Make an authenticated request with exponential-backoff retry.
 
         Retries on: 429, 500, 502, 503, 504 (transient errors).
         Immediate re-raise on: HTTPTimeoutError, HTTPNetworkError (structural).
@@ -225,12 +237,15 @@ class PaginationEngine:
 
         for attempt in range(safety.max_retries + 1):
             try:
-                request = httpx.Request("GET", url, params=params, headers=headers)
+                req_kwargs: dict = {"params": params, "headers": headers}
+                if json_body is not None:
+                    req_kwargs["json"] = json_body
+                request = httpx.Request(method, url, **req_kwargs)
                 authenticated_request = auth_handler.prepare_request(
                     request, credentials
                 )
 
-                with httpx.Client(verify=ssl_verify, timeout=timeout) as client:
+                with httpx.Client(verify=ssl_verify, timeout=timeout, follow_redirects=True) as client:
                     response = client.send(authenticated_request)
 
                 if response.status_code >= 400:

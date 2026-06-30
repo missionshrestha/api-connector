@@ -80,7 +80,7 @@ class BaseHTTPClient:
             authenticated_request = auth_handler.prepare_request(request, credentials)
 
             start_time = time.monotonic()
-            with httpx.Client(verify=ssl_verify, timeout=self.timeout) as client:
+            with httpx.Client(verify=ssl_verify, timeout=self.timeout, follow_redirects=True) as client:
                 response = client.send(authenticated_request)
             latency_ms = int((time.monotonic() - start_time) * 1000)
 

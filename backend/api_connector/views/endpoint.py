@@ -219,12 +219,21 @@ class EndpointViewSet(viewsets.ModelViewSet):
 
         client = BaseHTTPClient(timeout=profile.request_timeout)
         try:
-            response = client.get(
-                url,
-                auth_handler=auth_handler,
-                credentials=credentials,
-                ssl_verify=profile.ssl_verify,
-            )
+            if endpoint.method == "POST":
+                response = client.post(
+                    url,
+                    auth_handler=auth_handler,
+                    credentials=credentials,
+                    ssl_verify=profile.ssl_verify,
+                    json=endpoint.request_body or {},
+                )
+            else:
+                response = client.get(
+                    url,
+                    auth_handler=auth_handler,
+                    credentials=credentials,
+                    ssl_verify=profile.ssl_verify,
+                )
         except HTTPStatusError as exc:
             return Response(
                 {
