@@ -1,0 +1,132 @@
+{
+  "searchRetrieveResponse": {
+    "version": "1.1",
+    "numberOfRecords": "111225",
+    "records": {
+      "record": [
+        {
+          "recordSchema": "oai_dc",
+          "recordPacking": "xml",
+          "recordData": {
+            "dc": {
+              "title": "TEST_3 : Untertitel_Test / Maxwell Mustermann",
+              "creator": [
+                "Mustermann, Maxwell [Verfasser]"
+              ],
+              "publisher": "Köln : Emons Verlag",
+              "date": "2191",
+              "language": "ger",
+              "identifier": [
+                {
+                  "@type": "tel:ISBN",
+                  "#text": "978-3-7408-0015-4 broschiert : EUR 1.00 (DE), EUR 1.00 (AT)"
+                },
+                {
+                  "@type": "tel:ISBN",
+                  "#text": "3-7408-0015-1"
+                },
+                {
+                  "@type": "dnb:IDN",
+                  "#text": "1347244395"
+                }
+              ],
+              "subject": [
+                "830 Deutsche Literatur",
+                "B Belletristik"
+              ],
+              "format": "240 Seiten"
+            }
+          },
+          "recordPosition": "1"
+        },
+        {
+          "recordSchema": "oai_dc",
+          "recordPacking": "xml",
+          "recordData": {
+            "dc": {
+              "title": "Test Titel",
+              "publisher": "Berlin : Studio 10119 GmbH",
+              "date": "2042",
+              "identifier": [
+                {
+                  "@type": "tel:ISBN",
+                  "#text": "978-3-9826150-9-7 : EUR 29.99 (DE), EUR 30.30 (AT)"
+                },
+                {
+                  "@type": "tel:ISBN",
+                  "#text": "3-9826150-9-7"
+                },
+                {
+                  "@type": "dnb:IDN",
+                  "#text": "1378485017"
+                }
+              ],
+              "subject": [
+                "914.3 Geografie, Reisen (Deutschland)"
+              ],
+              "format": "123 Seiten"
+            }
+          },
+          "recordPosition": "2"
+        },
+        {
+          "recordSchema": "oai_dc",
+          "recordPacking": "xml",
+          "recordData": {
+            "dc": {
+              "title": "Neural Networks: Theory, Algorithms, Simulation, and Applications / edited by Lakhveer Kaur, Pushpendra Kumar",
+              "creator": [
+                "Kaur, Lakhveer [Herausgeber]",
+                "Kumar, Pushpendra [Herausgeber]"
+              ],
+              "publisher": "Cham : Springer Nature Switzerland, Imprint: Springer",
+              "date": "2027",
+              "language": "eng",
+              "identifier": [
+                {
+                  "@type": "tel:URN",
+                  "#text": "urn:nbn:de:101:1-2607110408599.753730408169"
+                },
+                {
+                  "@type": "tel:URL",
+                  "#text": "http://nbn-resolving.de/urn:nbn:de:101:1-2607110408599.753730408169"
+                },
+                {
+                  "@type": "tel:ISBN",
+                  "#text": "978-3-032-18750-5"
+                },
+                {
+                  "@type": "tel:URL",
+                  "#text": "http://d-nb.info/1408139715/34"
+                },
+                {
+                  "@type": "tel:URL",
+                  "#text": "https://doi.org/10.1007/978-3-032-18750-5"
+                },
+                {
+                  "@type": "dnb:IDN",
+                  "#text": "1408139715"
+                }
+              ],
+              "subject": [
+                "004 Informatik"
+              ],
+              "type": "Online-Ressource"
+            }
+          },
+          "recordPosition": "3"
+        }
+      ]
+    },
+    "nextRecordPosition": "4",
+    "echoedSearchRetrieveRequest": {
+      "version": "1.1",
+      "query": "woe=test",
+      "xQuery": {
+        "@nil": "true"
+      },
+      "maximumRecords": "3",
+      "recordSchema": "oai_dc"
+    }
+  }
+}

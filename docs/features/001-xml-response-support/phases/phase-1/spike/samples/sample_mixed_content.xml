@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Synthetic sample — NOT a real captured response. Constructed specifically to
+exercise mixed content (an element with interleaved text AND child elements),
+which neither real sample (DNB, LOC MARCXML) happened to contain. This tests
+requirement.md/plan.md §12's residual-risk note about mixed content, per the
+breakdown's Testing Notes for P1.B-01.
+-->
+<catalog xmlns="http://example.org/catalog" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <item id="1">
+    <dc:title>Learning Python</dc:title>
+    <description>This book covers <em>advanced</em> topics including <code>asyncio</code> and more, aimed at <em>intermediate</em> readers.</description>
+    <dc:creator>Mark Lutz</dc:creator>
+  </item>
+  <item id="2">
+    <dc:title>Fluent Python</dc:title>
+    <description>A deep dive with no inline markup at all.</description>
+    <dc:creator>Luciano Ramalho</dc:creator>
+  </item>
+</catalog>

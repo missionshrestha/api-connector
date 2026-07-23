@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Synthetic sample — NOT a real captured response. Constructed specifically to
+demonstrate the cross-namespace key-collision edge case DEC-5 explicitly
+accepts as a rare risk: two DIFFERENT elements, from two DIFFERENT
+namespaces, sharing the same local name ("title"), as SIBLINGS under the
+same parent — so after namespace-stripping they collapse to the same dict
+key. Neither real sample (DNB, LOC MARCXML) happened to contain this.
+-->
+<record xmlns:dc="http://purl.org/dc/elements/1.1/"
+        xmlns:mods="http://www.loc.gov/mods/v3">
+  <dc:title>The Great Gatsby</dc:title>
+  <mods:title>Le Grand Gatsby (French edition subtitle)</mods:title>
+  <dc:creator>F. Scott Fitzgerald</dc:creator>
+</record>
