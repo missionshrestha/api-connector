@@ -25,6 +25,7 @@ No production code was touched at any point; everything here is throwaway spike 
 - `docs/_meta/active-context.md` (updated): Phase 1 status → "Ready for review"; Next Action updated to point at this file and the `DEC-8` promotion step.
 
 **Added for the deepened comparison** (at the human's request, after the initial spike above was already complete):
+
 - `docs/features/001-xml-response-support/phases/phase-1/spike/trial_xmltodict.py` (new, throwaway): the `xmltodict`-based counterpart to `trial.py` — same normalization convention, built on `xmltodict`'s native `force_list` callable + `postprocessor` mechanisms instead of a hand-rolled tree walk; includes the XXE/billion-laughs/bare-DOCTYPE security trial (both at `xmltodict`'s own default `disable_entities=True` and against a hand-written hardened-expat shim, `_HardenedExpatModule`, since the breakdown's assumed `defusedexpat` companion package is dead); and a `compare_on_sample()` helper that runs both candidates side-by-side with timing.
 - `docs/features/001-xml-response-support/phases/phase-1/spike/samples/sample_loc_marc.xml` (new): a 2nd real captured sample, from Library of Congress's public SRU/MARCXML endpoint — a differently-shaped real-world case (prefixed `zs:` namespace, `tag`/`ind1`/`ind2`/`code`-attribute-driven repeated elements).
 - `docs/features/001-xml-response-support/phases/phase-1/spike/samples/sample_mixed_content.xml` (new, synthetic): constructed specifically to exercise mixed content, which neither real sample happened to contain — this is what surfaced the `ElementTree` bug described in §1.
@@ -69,6 +70,7 @@ None. This phase produced no production code, no model/schema/API changes, and n
 This phase intentionally has no automated test suite (Rule 2; plan.md §7 Phase 1 Artifacts: "throwaway trial code... not production code"). Verification was manual, per the breakdown's own Testing Notes:
 
 **P1.A-02 (raw parse + XXE check)** — actual output:
+
 ```
 root tag (namespaced): {http://www.loc.gov/zing/srw/}searchRetrieveResponse
 ...
@@ -76,12 +78,15 @@ PASS: defusedxml raised EntitiesForbidden — external entity declaration reject
 ```
 
 **P1.B-01 (normalization)** — actual output (repeatable pairs found):
+
 ```
 Repeatable (parent, child) pairs found (max count > 1 anywhere): [('dc', 'creator'), ('dc', 'identifier'), ('dc', 'subject'), ('records', 'record')]
 ```
+
 `dc.creator` confirmed: `["Mustermann, Maxwell [Verfasser]"]` (record[0], 1 occurrence) / absent (record[1]) / `["Kaur, Lakhveer [Herausgeber]", "Kumar, Pushpendra [Herausgeber]"]` (record[2], 2 occurrences) — both single and multi resolve to Python `list`.
 
 **P1.B-02 (`extract_records_at_path`, real function, bare `python`)** — actual output:
+
 ```
 === P1.B-02: extract_records_at_path validation (real, unmodified function) ===
 data_root_path = 'searchRetrieveResponse.records.record'
@@ -91,6 +96,7 @@ Deliberately wrong path 'searchRetrieveResponse.does.not.exist' -> [] (confirms 
 ```
 
 **P1.B-03 (`SchemaInferenceEngine._walk_record`, real method, via `python manage.py shell -c "..."`)** — actual output:
+
 ```
 --- record[0] flattened (13 paths) ---
   recordSchema = 'oai_dc'
@@ -103,9 +109,11 @@ Deliberately wrong path 'searchRetrieveResponse.does.not.exist' -> [] (confirms 
   ...
 Union of all flattened keys across 3 records: 14
 ```
+
 Zero namespace-prefix leakage in any key (spot-checked all 14 union keys — none contain `:` or `{...}`). Zero colliding keys with contradictory meanings.
 
 **Security Self-Check** (Rule 3):
+
 - **Injection/XSS/Log Injection**: N/A — no user input, no logging of response bodies, no SQL/shell/eval involved anywhere in this throwaway code.
 - **Authorization/Secrets**: N/A — no auth, no credentials touched; the sample was fetched via a plain, unauthenticated public SRU query (no API key).
 - **Sensitive-data exposure**: the sample is a real captured response, but the queried records are DNB's own test/dummy bibliographic entries (query `woe=test`), not real user PII; `spike-findings.md` includes only short excerpts, not full raw bodies, per project convention.
@@ -117,6 +125,7 @@ Zero namespace-prefix leakage in any key (spot-checked all 14 union keys — non
 **Deepened comparison — additional verification** (at the human's request, after the above was already complete):
 
 **Security trial (`xmltodict`)** — actual output, 3 payloads (classic entity-based XXE, billion-laughs entity bomb, bare-DOCTYPE-no-entity) at default settings (`disable_entities=True`) and against a hand-written hardened-expat shim:
+
 ```
 --- (1) classic entity-based XXE, default settings (disable_entities=True) ---
 PASS: rejected -> ValueError: entities are disabled
@@ -136,21 +145,23 @@ PASS (benign external-subset-only DOCTYPE): hardened shim rejected -> DTDForbidd
 **Correctness trial (5 samples, both candidates)**: identical normalized output across all 5 (`sample.xml`, `sample_loc_marc.xml`, `sample_mixed_content.xml` — after the `trial.py` fix, `sample_ns_collision.xml`, `sample_large.xml`); both independently re-validated against the real `extract_records_at_path` (LOC MARCXML: 2/2 records resolved by both, 24 `datafield` elements per record matching) and `SchemaInferenceEngine._walk_record` (`walk_record_output.txt` vs `walk_record_output_xmltodict.txt`, identical).
 
 **Performance trial**: 5 timed runs on `sample_large.xml` (5000 records, ~3.1MB):
+
 ```
 ElementTree: min=264.6ms max=346.3ms avg=305.4ms
 xmltodict:   min=509.1ms max=564.4ms avg=527.5ms
 ratio (xmltodict/ElementTree): 1.73x
 ```
+
 Full detail, weighted recommendation, and the research citations behind the maintenance/security-posture claims are in `spike-findings.md` §8.
 
 ## 8. Phase Acceptance Criteria
 
-| Criterion (breakdown.md §4) | Status | Evidence |
-|---|---|---|
-| Normalized structure contains no XML namespace prefixes in any key | **Met** | §7 P1.B-01 output; `walk_record_output.txt`'s 14 union keys spot-checked, none contain `:`/`{...}` |
-| Unmodified `extract_records_at_path` returns the expected list of record dicts (not merely non-empty) | **Met** | §7 P1.B-02 output — 3 records resolved, first record's title verified against `sample.xml`'s actual text |
-| Unmodified `SchemaInferenceEngine._walk_record` produces a flat map with zero colliding keys | **Met** | §7 P1.B-03 output — 14 distinct keys across 3 records, no contradictory collisions |
-| `spike-findings.md` exists with go/no-go verdict + 4 confirmed-convention items | **Met** | `spike-findings.md` §1-4 (library, namespace rule, coercion rule, attribute/text rule) + §7 verdict |
+| Criterion (breakdown.md §4)                                                                           | Status        | Evidence                                                                                                    |
+| ------------------------------------------------------------------------------------------------------ | ------------- | ----------------------------------------------------------------------------------------------------------- |
+| Normalized structure contains no XML namespace prefixes in any key                                     | **Met** | §7 P1.B-01 output;`walk_record_output.txt`'s 14 union keys spot-checked, none contain `:`/`{...}`    |
+| Unmodified`extract_records_at_path` returns the expected list of record dicts (not merely non-empty) | **Met** | §7 P1.B-02 output — 3 records resolved, first record's title verified against`sample.xml`'s actual text |
+| Unmodified`SchemaInferenceEngine._walk_record` produces a flat map with zero colliding keys          | **Met** | §7 P1.B-03 output — 14 distinct keys across 3 records, no contradictory collisions                        |
+| `spike-findings.md` exists with go/no-go verdict + 4 confirmed-convention items                      | **Met** | `spike-findings.md` §1-4 (library, namespace rule, coercion rule, attribute/text rule) + §7 verdict     |
 
 ## 9. Needs Your Eyes
 
