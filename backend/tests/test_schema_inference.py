@@ -6,10 +6,13 @@ Pure logic tests (walker, type inference) use no DB.
 _fetch_sample() is mocked in orchestration tests — no real HTTP calls.
 """
 
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
+from api_connector.models import ResponseFormat
+from api_connector.services.auth.handlers.none_handler import NoneAuthHandler
 from api_connector.services.schema_inference.engine import (
     SchemaInferenceEngine,
     _infer_type_from_values,
@@ -26,6 +29,12 @@ from tests.factories import (
     EndpointFactory,
     SchemaFieldFactory,
 )
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+XML_SPIKE_DIR = (
+    REPO_ROOT / "docs/features/001-xml-response-support/phases/phase-1/spike"
+)
+XML_DATA_ROOT_PATH = "searchRetrieveResponse.records.record"
 
 # ─── Walker tests (no DB) ──────────────────────────────────────────────────────
 
@@ -235,6 +244,42 @@ class TestSchemaInferenceEngineInfer:
             pytest.raises(SchemaInferenceError),
         ):
             engine.infer(None, None, {})
+
+
+@pytest.mark.django_db
+class TestSchemaInferenceEngineInferXml:
+    """P3.A-02: SchemaInferenceEngine.infer() end-to-end against a real,
+    normalized XML body (Phase 1's DNB SRU sample, driven via httpx_mock,
+    not a hand-typed dict) — proving _walk_record()/_infer_type_from_values()
+    need zero XML-aware changes (FR5)."""
+
+    def test_infer_against_real_xml_sample(self, httpx_mock):
+        profile = ConnectionProfileFactory(base_url="https://services.dnb.de")
+        endpoint = EndpointFactory(
+            connection_profile=profile,
+            path="/sru/dnb",
+            data_root_path=XML_DATA_ROOT_PATH,
+            response_format=ResponseFormat.XML,
+        )
+        xml_bytes = (XML_SPIKE_DIR / "sample.xml").read_bytes()
+        httpx_mock.add_response(content=xml_bytes, status_code=200)
+
+        specs = SchemaInferenceEngine().infer(endpoint, NoneAuthHandler(), {})
+        specs_by_path = {s.key_path: s for s in specs}
+
+        # dc.creator: 1/absent/2 occurrences across the 3 records
+        # (test_xml_parser.py's confirmed proof) — must resolve as a
+        # list-coerced type, never a plain scalar (FR4), and the record
+        # where it's absent must show up as a non-zero null_percentage.
+        creator_spec = specs_by_path["recordData.dc.creator"]
+        assert creator_spec.inferred_type == "array_of_primitives"
+        assert abs(creator_spec.null_percentage - 1 / 3) < 0.001
+
+        # A field present in all 3 records with plain scalar text infers
+        # as an ordinary string — same semantics as an equivalent JSON body.
+        title_spec = specs_by_path["recordData.dc.title"]
+        assert title_spec.inferred_type == "string"
+        assert title_spec.null_percentage == 0.0
 
 
 # ─── upsert_fields() DB tests ─────────────────────────────────────────────────

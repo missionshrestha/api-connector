@@ -13,8 +13,11 @@ from api_connector.services.pagination.engine import (
     PaginationEngineError,
 )
 from api_connector.services.pagination.strategies import (
+    CursorStrategy,
+    NextURLStrategy,
     NoPaginationStrategy,
     OffsetLimitStrategy,
+    PageSizeStrategy,
 )
 from api_connector.services.pagination.types import SafetyConfig
 from api_connector.services.pagination.utils import (
@@ -43,6 +46,15 @@ def _xml_page(ids):
 def collect_pages(engine, **kwargs):
     """Collect all pages from the engine, unpacking (records, body) tuples."""
     return [records for records, _ in engine.paginate(**kwargs)]
+
+
+def _xml_page_with_meta(ids, meta_xml=""):
+    """Build an XML page body: <root><data><item>...</item></data>{meta_xml}</root>.
+    Parallels _xml_page, adding a <meta> sibling to the <data> root for the
+    3 body-reading strategies (Cursor/NextURL/PageSize's total_pages_path)
+    that read a value out of response.raw_body via get_at_path()."""
+    items = "".join(f"<item><id>{i}</id></item>" for i in ids)
+    return f"<root><data>{items}</data>{meta_xml}</root>".encode()
 
 
 @pytest.mark.django_db
@@ -333,6 +345,247 @@ class TestPaginationEngineXml:
 
         assert len(pages) == 3
         assert len(httpx_mock.get_requests()) == 3
+
+    def test_cursor_strategy_reads_cursor_from_xml_body(self, httpx_mock):
+        """P3.A-01: CursorStrategy reads meta.cursor out of the normalized
+        XML body via get_at_path() — same traversal as JSON, zero strategy
+        code changes. Covers both cursor-present (continues) and
+        cursor-absent (stops) — mirroring TestCursorStrategy's unit
+        coverage end-to-end."""
+        profile = ConnectionProfileFactory(base_url="https://api.example.com")
+        endpoint = EndpointFactory(
+            connection_profile=profile,
+            path="/items",
+            data_root_path="root.data.item",
+            response_format=ResponseFormat.XML,
+        )
+        strategy = CursorStrategy(
+            {
+                "cursor_request_param": "after",
+                "cursor_response_path": "root.meta.cursor",
+            }
+        )
+
+        httpx_mock.add_response(
+            content=_xml_page_with_meta([1, 2], "<meta><cursor>abc123</cursor></meta>"),
+            status_code=200,
+        )
+        httpx_mock.add_response(
+            content=_xml_page_with_meta([3, 4], "<meta></meta>"), status_code=200
+        )
+
+        engine = PaginationEngine()
+        pages = collect_pages(
+            engine,
+            endpoint=endpoint,
+            auth_handler=NoneAuthHandler(),
+            credentials={},
+            strategy=strategy,
+            safety=SAFETY,
+        )
+
+        assert [len(p) for p in pages] == [2, 2]
+        requests = httpx_mock.get_requests()
+        assert len(requests) == 2
+        assert requests[1].url.params["after"] == "abc123"
+
+    def test_next_url_strategy_follows_next_url_from_xml_body(self, httpx_mock):
+        """P3.A-01: NextURLStrategy reads links.next out of the normalized
+        XML body and the engine follows the `_next_url` sentinel — zero
+        strategy/engine code changes. Covers both next-url-present
+        (follows) and next-url-absent (stops).
+
+        Uses a query-string-free next_url deliberately: this test uncovered
+        a pre-existing, format-agnostic bug in PaginationEngine._request_with_retry
+        (engine.py:252, `req_kwargs = {"params": params, ...}` passed to
+        httpx.Request unconditionally) — passing an explicit empty `params={}`
+        to httpx.Request strips any query string already present in the
+        `_next_url` sentinel's URL, for JSON endpoints too. Out of scope for
+        this XML-support phase (not downstream of XML normalization, DEC-1);
+        flagged in implementation.md §9 for separate follow-up rather than
+        fixed here."""
+        profile = ConnectionProfileFactory(base_url="https://api.example.com")
+        endpoint = EndpointFactory(
+            connection_profile=profile,
+            path="/items",
+            data_root_path="root.data.item",
+            response_format=ResponseFormat.XML,
+        )
+        strategy = NextURLStrategy({"next_url_response_path": "root.meta.next_url"})
+        next_url = "https://api.example.com/items/page/2"
+
+        httpx_mock.add_response(
+            content=_xml_page_with_meta(
+                [1, 2], f"<meta><next_url>{next_url}</next_url></meta>"
+            ),
+            status_code=200,
+        )
+        httpx_mock.add_response(
+            content=_xml_page_with_meta([3, 4], "<meta></meta>"), status_code=200
+        )
+
+        engine = PaginationEngine()
+        pages = collect_pages(
+            engine,
+            endpoint=endpoint,
+            auth_handler=NoneAuthHandler(),
+            credentials={},
+            strategy=strategy,
+            safety=SAFETY,
+        )
+
+        assert [len(p) for p in pages] == [2, 2]
+        requests = httpx_mock.get_requests()
+        assert len(requests) == 2
+        assert str(requests[1].url) == next_url
+
+    def test_page_size_strategy_total_pages_and_fallback_from_xml_body(
+        self, httpx_mock
+    ):
+        """P3.A-01: PageSizeStrategy resolves total_pages_path from the
+        normalized XML body (stops at the declared page count); when
+        total_pages_path is absent, it falls back to the same record-count
+        comparison OffsetLimitStrategy already uses — zero strategy code
+        changes either way."""
+        profile = ConnectionProfileFactory(base_url="https://api.example.com")
+        endpoint = EndpointFactory(
+            connection_profile=profile,
+            path="/items",
+            data_root_path="root.data.item",
+            response_format=ResponseFormat.XML,
+        )
+        engine = PaginationEngine()
+
+        # Sub-case 1: total_pages_path resolved → stops at the declared page count.
+        httpx_mock.add_response(
+            content=_xml_page_with_meta(
+                [1, 2], "<meta><total_pages>1</total_pages></meta>"
+            ),
+            status_code=200,
+        )
+        strategy_with_total = PageSizeStrategy(
+            {
+                "page_param": "page",
+                "page_size_param": "per_page",
+                "page_size": 2,
+                "total_pages_path": "root.meta.total_pages",
+            }
+        )
+        pages = collect_pages(
+            engine,
+            endpoint=endpoint,
+            auth_handler=NoneAuthHandler(),
+            credentials={},
+            strategy=strategy_with_total,
+            safety=SAFETY,
+        )
+        assert len(pages) == 1
+
+        # Sub-case 2: total_pages_path absent → falls back to record-count
+        # comparison (len(records) < page_size stops pagination). Uses a
+        # page_size of 3 (not 2) so the terminating partial page holds 2
+        # records rather than a lone singleton — a single <item> in one XML
+        # document doesn't coerce to a list (DEC-8's documented residual
+        # risk: list-coercion is document-local, scoped per page), which
+        # would make extract_records_at_path see 0 records instead of 1 and
+        # produce a false-positive stop for the wrong reason.
+        httpx_mock.add_response(
+            content=_xml_page_with_meta([1, 2, 3], ""), status_code=200
+        )
+        httpx_mock.add_response(
+            content=_xml_page_with_meta([4, 5], ""), status_code=200
+        )
+        strategy_no_total = PageSizeStrategy(
+            {"page_param": "page", "page_size_param": "per_page", "page_size": 3}
+        )
+        pages_fallback = collect_pages(
+            engine,
+            endpoint=endpoint,
+            auth_handler=NoneAuthHandler(),
+            credentials={},
+            strategy=strategy_no_total,
+            safety=SAFETY,
+        )
+        assert [len(p) for p in pages_fallback] == [3, 2]
+
+        assert len(httpx_mock.get_requests()) == 3
+
+
+@pytest.mark.django_db
+class TestPaginationEngineRawResponseSink:
+    """P3.B-01: raw_response_sink out-parameter — additive, format-agnostic.
+    Populated regardless of endpoint.response_format; None default is a
+    complete no-op (zero behavior change from Phase 2)."""
+
+    def test_sink_populated_after_one_page(self, httpx_mock):
+        profile = ConnectionProfileFactory(base_url="https://api.example.com")
+        endpoint = EndpointFactory(
+            connection_profile=profile, path="/items", data_root_path="data"
+        )
+        body_text = '{"data": [{"id": 1}]}'
+        httpx_mock.add_response(content=body_text.encode(), status_code=200)
+
+        engine = PaginationEngine()
+        sink: dict = {}
+        list(
+            engine.paginate(
+                endpoint=endpoint,
+                auth_handler=NoneAuthHandler(),
+                credentials={},
+                strategy=NoPaginationStrategy(),
+                safety=SAFETY,
+                raw_response_sink=sink,
+            )
+        )
+
+        assert sink["text"] == body_text
+
+    def test_sink_none_default_is_a_no_op(self, httpx_mock):
+        """Default (no sink passed) — no behavior change from Phase 2."""
+        profile = ConnectionProfileFactory(base_url="https://api.example.com")
+        endpoint = EndpointFactory(
+            connection_profile=profile, path="/items", data_root_path="data"
+        )
+        httpx_mock.add_response(json={"data": [{"id": 1}]}, status_code=200)
+
+        engine = PaginationEngine()
+        pages = collect_pages(
+            engine,
+            endpoint=endpoint,
+            auth_handler=NoneAuthHandler(),
+            credentials={},
+            strategy=NoPaginationStrategy(),
+            safety=SAFETY,
+        )
+        assert pages == [[{"id": 1}]]
+
+    def test_sink_holds_last_page_text_across_multiple_pages(self, httpx_mock):
+        """Multi-page pagination: sink holds the LAST page's text once
+        iteration stops, not the first page or a concatenation."""
+        profile = ConnectionProfileFactory(base_url="https://api.example.com")
+        endpoint = EndpointFactory(
+            connection_profile=profile, path="/items", data_root_path="data"
+        )
+        strategy = OffsetLimitStrategy(OL_PARAMS)
+        page1 = '{"data": [' + ", ".join(f'{{"id": {i}}}' for i in range(10)) + "]}"
+        page2 = '{"data": [{"id": 10}, {"id": 11}]}'
+        httpx_mock.add_response(content=page1.encode(), status_code=200)
+        httpx_mock.add_response(content=page2.encode(), status_code=200)
+
+        engine = PaginationEngine()
+        sink: dict = {}
+        list(
+            engine.paginate(
+                endpoint=endpoint,
+                auth_handler=NoneAuthHandler(),
+                credentials={},
+                strategy=strategy,
+                safety=SAFETY,
+                raw_response_sink=sink,
+            )
+        )
+
+        assert sink["text"] == page2
 
 
 # ── detect_data_root unit tests ───────────────────────────────────────────────

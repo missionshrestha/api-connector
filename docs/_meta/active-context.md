@@ -26,12 +26,12 @@ This pipeline is designed around **one feature in flight at a time**. If you eve
 | --- | --- | --- |
 | 1 | Reconciled — 🟡 YELLOW, see DEV-1/2/3 | 2026-07-23 |
 | 2 | Reconciled — 🟢 GREEN | 2026-07-23 |
-| 3 | Not started | — |
+| 3 | Reconciled — 🟡 YELLOW, see DEV-1 | 2026-07-23 |
 | 4 | Not started | — |
 
 ## Next Action
 
-Human: already committed (`5d241ed`, "feat: implement XML response support in PaginationEngine" — single commit covering the whole phase, not the suggested 6-commit plan). No action needed on Phase 2 beyond the optional read of `phases/phase-2/reconciliation.md`. Next: Breakdown Engineer — Phase 3 (Schema Inference & Data Preview Integration).
+Human: 9 files are already staged (`engine.py`, `data_preview.py`, the 3 phase-3 test files, `decisions.md`, an earlier `active-context.md`, `phase-3/breakdown.md`, `phase-3/implementation.md`) — a bare `git commit` would commit only those. First run `git add docs/_meta/active-context.md docs/project-detail.md docs/features/001-xml-response-support/phases/phase-3/reconciliation.md` to pick up this Reconciler's memory-bank updates and its report, then review with `git diff --cached` and commit. After that: Breakdown Engineer — Phase 4. See `phase-3/reconciliation.md` (475 tests passing, independently re-run and confirmed, 0 regressions; DEV-1: pre-existing, format-agnostic `_next_url` query-string-drop bug, carried forward for Phase 4 to consider before its e2e validation runs).
 
 ---
 

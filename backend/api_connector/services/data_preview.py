@@ -29,7 +29,7 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-from api_connector.models import PaginationConfig, SchemaField
+from api_connector.models import PaginationConfig, ResponseFormat, SchemaField
 from api_connector.services.auth.base import BaseAuthHandler
 from api_connector.services.pagination.engine import PaginationEngine
 from api_connector.services.pagination.registry import pagination_registry
@@ -174,6 +174,7 @@ class DataPreviewService:
         # Requesting one extra record lets us know more data exists without fetching it.
         all_raw_records: list[dict] = []
         last_raw_body: dict = {}
+        raw_response_sink: dict = {}
 
         engine = PaginationEngine()
         for page_records, raw_body in engine.paginate(
@@ -183,6 +184,7 @@ class DataPreviewService:
             strategy=strategy,
             safety=safety,
             row_limit=row_limit + 1,
+            raw_response_sink=raw_response_sink,
         ):
             all_raw_records.extend(page_records)
             last_raw_body = raw_body
@@ -202,8 +204,18 @@ class DataPreviewService:
             rows.append(row)
 
         # ── Step 7: Serialize raw_response_body — truncated at 50,000 chars ──
-        # default=str handles datetimes and other non-JSON-serializable types
-        raw_response_body = json.dumps(last_raw_body, indent=2, default=str)[:50_000]
+        # XML endpoints show the original response text, not a JSON reinterpretation
+        # of the normalized body (DEC-6) — every other consumer above is unaffected.
+        if (
+            endpoint.response_format == ResponseFormat.XML
+            and raw_response_sink.get("text") is not None
+        ):
+            raw_response_body = raw_response_sink["text"][:50_000]
+        else:
+            # default=str handles datetimes and other non-JSON-serializable types
+            raw_response_body = json.dumps(last_raw_body, indent=2, default=str)[
+                :50_000
+            ]
 
         duration_ms = int((time.monotonic() - start) * 1000)
         # Log ONLY structural metadata — never log rows, raw_response_body, or credentials

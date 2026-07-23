@@ -68,6 +68,7 @@ class PaginationEngine:
         strategy: BasePaginationStrategy,
         safety: SafetyConfig,
         row_limit: int | None = None,
+        raw_response_sink: dict | None = None,
     ) -> Generator[list[dict], None, None]:
         """
         Drive all 6 pagination strategies, yielding one list of records per page.
@@ -81,6 +82,12 @@ class PaginationEngine:
             strategy: Instantiated pagination strategy.
             safety: Hard stop limits (max_pages, max_records, etc.).
             row_limit: Optional; stop after this many total records (Phase 7).
+            raw_response_sink: Optional caller-owned dict; if provided, the engine
+                      sets sink["text"] = response.text on every page (regardless
+                      of format), overwritten each iteration so it holds the last
+                      page's text once iteration stops. Lets a caller recover the
+                      original response text past this generator's yield without
+                      changing its shape (Phase 3, DEC-6/OD-1 option (c)).
 
         Yields:
             list[dict] — one page of records per iteration.
@@ -142,6 +149,9 @@ class PaginationEngine:
                 method=endpoint.method,
                 json_body=request_body,
             )
+
+            if raw_response_sink is not None:
+                raw_response_sink["text"] = response.text
 
             # Parse the response body per the endpoint's configured format
             try:

@@ -13,10 +13,13 @@ Critical contracts tested:
   - effective_type: type_override wins over inferred_type when set
 """
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from api_connector.models import ResponseFormat
+from api_connector.services.auth.handlers.none_handler import NoneAuthHandler
 from api_connector.services.data_preview import (
     ColumnMeta,
     DataPreviewService,
@@ -514,3 +517,80 @@ class TestDataPreviewServiceDB:
                 row_limit=10,
             )
         assert result.total_fetched == 1
+
+
+@pytest.mark.django_db
+class TestDataPreviewServiceXmlRawResponse:
+    """P3.B-03: end-to-end XML raw_response_body coverage — drives
+    DataPreviewService.preview() through the REAL PaginationEngine via
+    httpx_mock (mirroring TestPaginationEngineXml's pattern), NOT
+    _mock_engine_pages/mock_paginate_generator, which patches
+    PaginationEngine.paginate() entirely and would not exercise the real
+    raw_response_sink wiring added in P3.B-01/02."""
+
+    def _setup_xml_endpoint(self):
+        profile = ConnectionProfileFactory(
+            auth_type="none", base_url="https://api.example.com"
+        )
+        from api_connector.services.encryption import encryption_service
+        from tests.factories import AuthConfigFactory
+
+        AuthConfigFactory(
+            connection_profile=profile,
+            encrypted_credentials=encryption_service.encrypt_dict({}),
+        )
+        endpoint = EndpointFactory(
+            connection_profile=profile,
+            path="/items",
+            data_root_path="root.data.item",
+            response_format=ResponseFormat.XML,
+        )
+        SchemaFieldFactory(
+            endpoint=endpoint, key_path="id", include=True, inferred_type="string"
+        )
+        return endpoint
+
+    def test_raw_response_body_is_original_xml_text(self, httpx_mock):
+        endpoint = self._setup_xml_endpoint()
+        xml_text = (
+            "<root><data><item><id>1</id></item><item><id>2</id></item></data></root>"
+        )
+        httpx_mock.add_response(content=xml_text.encode(), status_code=200)
+
+        service = DataPreviewService()
+        result = service.preview(
+            endpoint,
+            NoneAuthHandler(),
+            {"_profile_id": endpoint.connection_profile.pk},
+            row_limit=10,
+        )
+
+        # Equals the original XML text exactly — not a JSON reinterpretation
+        # of the normalized body (that's the actual regression this guards).
+        assert result.raw_response_body == xml_text
+        assert result.raw_response_body != json.dumps(
+            {"root": {"data": {"item": [{"id": "1"}, {"id": "2"}]}}}, indent=2
+        )
+        assert result.rows == [{"id": "1"}, {"id": "2"}]
+
+    def test_raw_response_body_truncated_at_50k_for_xml(self, httpx_mock):
+        """XML text longer than 50,000 chars truncates identically to the
+        existing JSON cap test's shape."""
+        endpoint = self._setup_xml_endpoint()
+        long_value = "x" * 100_000
+        long_xml = (
+            f"<root><data><item><id>{long_value}</id></item>"
+            "<item><id>short</id></item></data></root>"
+        )
+        httpx_mock.add_response(content=long_xml.encode(), status_code=200)
+
+        service = DataPreviewService()
+        result = service.preview(
+            endpoint,
+            NoneAuthHandler(),
+            {"_profile_id": endpoint.connection_profile.pk},
+            row_limit=10,
+        )
+
+        assert len(result.raw_response_body) == 50_000
+        assert result.raw_response_body == long_xml[:50_000]

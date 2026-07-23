@@ -112,3 +112,30 @@ Status: Decided. Origin: Breakdown Engineer · Phase 1 · REVISE — promoted fr
   suite run afterward to prove zero regression before finalizing the phase. See
   `phases/phase-2/implementation.md` for the full halt record and post-resolution
   verification.
+
+---
+
+**Implementor tactical decisions — Phase 3 (Origin: Implementor · Phase 3 · 2026-07-23)**
+
+- **OD-1 + P3.B `[REVIEW-GATE]` halt, resolved: proceed with option (c) as written.** P3.A
+  (Integration Validation — 4 new end-to-end tests proving `CursorStrategy`/
+  `NextURLStrategy`/`PageSizeStrategy` and `SchemaInferenceEngine.infer()` need zero
+  XML-aware changes) was implemented and verified first (470 tests passing, 0
+  regressions). Before touching P3.B-01 — adding a `raw_response_sink` optional
+  out-parameter to `PaginationEngine.paginate()`, the same shared chokepoint Phase 2's
+  own `[REVIEW-GATE]` already touched once — the phase's one designated `[REVIEW-GATE]`
+  subphase halted per Rule 4/Step 2, and `implementation.md §11` recorded the halt
+  (trigger, OD-1's 3 options, recommendation). Human confirmed "do what's recommended" —
+  option (c): an optional `raw_response_sink: dict | None = None` out-parameter,
+  chosen over (a) extending the yielded tuple's arity (~30 test call sites + 1
+  production site) and (b) a `dict` subclass with a hidden attribute (silently dropped
+  by any `dict(body)`/deepcopy, no error signal). See `phases/phase-3/implementation.md`
+  for the full halt record and post-resolution verification.
+- **New finding, out of scope for this phase**: writing P3.A-01's `NextURLStrategy` test
+  surfaced a pre-existing, format-agnostic bug in `PaginationEngine._request_with_retry`
+  — it passes `params={}` unconditionally to `httpx.Request` on the `_next_url` sentinel
+  path, which silently strips any query string already present in that URL (reproduced
+  directly against `httpx`, independent of this codebase). Affects `NextURLStrategy`/
+  `LinkHeaderStrategy` for JSON endpoints exactly as much as XML ones — predates this
+  feature, not downstream of XML normalization (DEC-1), not fixed here per Rule 6.
+  Flagged in `phases/phase-3/implementation.md §9` for a separate follow-up.
