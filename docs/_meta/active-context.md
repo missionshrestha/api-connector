@@ -25,13 +25,13 @@ This pipeline is designed around **one feature in flight at a time**. If you eve
 | Phase | Status | Updated |
 | --- | --- | --- |
 | 1 | Reconciled — 🟡 YELLOW, see DEV-1/2/3 | 2026-07-23 |
-| 2 | Not started | — |
+| 2 | Ready for review — 7/7 tasks done, 466 tests passing | 2026-07-23 |
 | 3 | Not started | — |
 | 4 | Not started | — |
 
 ## Next Action
 
-Human: commit, then Breakdown Engineer — Phase 2. Reconciler independently re-ran the full spike (both DEC-2 candidates, all 5 samples, XXE/security payloads, CVE audit) and confirmed every Phase Acceptance Criterion holds — see `phase-1/reconciliation.md`. Three significant, absorbable deviations (DEV-1/2/3) were found and are carried forward for Phase 2's breakdown: the confirmed two-pass `(parent_tag, child_tag)`-scoped list-coercion algorithm, the revised library recommendation (`xmltodict`, not `defusedxml.ElementTree` — `defusedexpat` is confirmed dead), and a required text-handling fix (`elem.text` + every child's `.tail`) if the `ElementTree` path is chosen instead. `DEC-8` has now been promoted to `decisions.md` (Origin: Breakdown Engineer · Phase 1 · REVISE), so Phase 2's breakdown can cite it directly. `breakdown.md`'s duplicated Handoff Note paragraph has also been fixed — nothing further blocking, ready to commit.
+Human: review the uncommitted delta (`git diff 069b461e53a61b73e227c8c43ce78f9347a2d21e`) per `phases/phase-2/implementation.md`'s suggested commit plan, then commit. Look first at `services/pagination/engine.py` (the `[REVIEW-GATE]` P2.B change — already reviewed once at the halt, human confirmed proceed, but it's still the highest-blast-radius diff in the phase) and `services/xml_parser.py` (the list-coercion port fidelity). All 7 tasks complete: P2.A (XML parsing module), P2.C (`Endpoint.response_format` field/migration/serializers/defaulting), P2.B (format branch). Full backend suite: 466 passed, zero regression on the existing JSON pipeline. After commit: Reconciler — Phase 2.
 
 ---
 

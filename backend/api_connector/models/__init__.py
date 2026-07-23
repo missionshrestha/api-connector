@@ -9,6 +9,7 @@ from api_connector.models.enums import (
     HTTPMethod,
     InferredType,
     PaginationStrategy,
+    ResponseFormat,
     TokenType,
 )
 from api_connector.models.oauth_ac_state import OAuthACState
@@ -29,6 +30,7 @@ __all__ = [
     "OAuthToken",
     "PaginationConfig",
     "PaginationStrategy",
+    "ResponseFormat",
     "SchemaField",
     "TokenType",
 ]

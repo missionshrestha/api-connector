@@ -55,6 +55,7 @@ class EndpointReadSerializer(serializers.ModelSerializer):
             "path_variables",
             "request_body",
             "endpoint_headers",
+            "response_format",
             "data_root_path",
             "record_count_path",
             "detected_path_variables",
@@ -99,6 +100,7 @@ class EndpointCreateSerializer(serializers.ModelSerializer):
             "path_variables",
             "request_body",
             "endpoint_headers",
+            "response_format",
             "data_root_path",
             "record_count_path",
         ]
@@ -191,6 +193,7 @@ class EndpointUpdateSerializer(serializers.ModelSerializer):
             "path_variables",
             "request_body",
             "endpoint_headers",
+            "response_format",
             "data_root_path",
             "record_count_path",
         ]
@@ -204,6 +207,7 @@ class EndpointUpdateSerializer(serializers.ModelSerializer):
                 "path_variables",
                 "request_body",
                 "endpoint_headers",
+                "response_format",
                 "data_root_path",
                 "record_count_path",
             ]

@@ -21,6 +21,8 @@ from collections.abc import Generator
 
 import httpx
 
+from api_connector.models.enums import ResponseFormat
+from api_connector.services import xml_parser
 from api_connector.services.auth.base import BaseAuthHandler
 from api_connector.services.http_exceptions import (
     HTTPNetworkError,
@@ -141,12 +143,22 @@ class PaginationEngine:
                 json_body=request_body,
             )
 
-            # Parse JSON
+            # Parse the response body per the endpoint's configured format
             try:
-                body = response.json()
+                if endpoint.response_format == ResponseFormat.XML:
+                    body = xml_parser.parse_xml_response(response.content)
+                else:
+                    body = response.json()
             except (json.JSONDecodeError, Exception) as exc:
+                logger.warning(
+                    "PaginationEngine parse failed: format=%s page=%d exc_type=%s",
+                    endpoint.response_format,
+                    cumulative_page_count + 1,
+                    type(exc).__name__,
+                )
                 raise PaginationEngineError(
-                    f"API returned non-JSON response at page {cumulative_page_count + 1}. "
+                    f"API returned a response that could not be parsed as "
+                    f"{endpoint.response_format} at page {cumulative_page_count + 1}. "
                     f"Enable data_root_path validation or check the endpoint URL."
                 ) from exc
 
@@ -245,7 +257,9 @@ class PaginationEngine:
                     request, credentials
                 )
 
-                with httpx.Client(verify=ssl_verify, timeout=timeout, follow_redirects=True) as client:
+                with httpx.Client(
+                    verify=ssl_verify, timeout=timeout, follow_redirects=True
+                ) as client:
                     response = client.send(authenticated_request)
 
                 if response.status_code >= 400:

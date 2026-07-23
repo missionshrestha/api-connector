@@ -35,7 +35,11 @@ from pathlib import Path
 
 import xmltodict
 import xml.parsers.expat as _real_expat
-from defusedxml.common import DTDForbidden, EntitiesForbidden, ExternalReferenceForbidden
+from defusedxml.common import (
+    DTDForbidden,
+    EntitiesForbidden,
+    ExternalReferenceForbidden,
+)
 
 SPIKE_DIR = Path(__file__).resolve().parent
 SAMPLES_DIR = SPIKE_DIR / "samples"
@@ -74,7 +78,9 @@ class _HardenedExpatModule:
         def _forbid_dtd(name, sysid, pubid, has_internal_subset):
             raise DTDForbidden(name, sysid, pubid)
 
-        def _forbid_entity(name, is_parameter_entity, value, base, sysid, pubid, notation_name):
+        def _forbid_entity(
+            name, is_parameter_entity, value, base, sysid, pubid, notation_name
+        ):
             raise EntitiesForbidden(name, value, base, sysid, pubid, notation_name)
 
         def _forbid_external(context, base, sysid, pubid):
@@ -107,7 +113,9 @@ def trial_xxe_rejection_xmltodict():
 <!DOCTYPE root SYSTEM "http://example.com/should-not-be-fetched.dtd">
 <root>hello</root>"""
 
-    print("--- (1) classic entity-based XXE, default settings (disable_entities=True) ---")
+    print(
+        "--- (1) classic entity-based XXE, default settings (disable_entities=True) ---"
+    )
     try:
         result = xmltodict.parse(classic_xxe, dict_constructor=dict)
         print(f"FAIL: parsed without error -> {result!r}")
@@ -119,13 +127,21 @@ def trial_xxe_rejection_xmltodict():
         result = xmltodict.parse(billion_laughs, dict_constructor=dict)
         print(f"FAIL: parsed without error -> {result!r}")
     except ValueError as e:
-        print(f"PASS: rejected (entity declarations disabled before expansion could occur) -> {type(e).__name__}: {e}")
+        print(
+            f"PASS: rejected (entity declarations disabled before expansion could occur) -> {type(e).__name__}: {e}"
+        )
 
-    print("--- (3) DOCTYPE with ONLY an external subset reference, no entity, default settings ---")
-    print("    (tests whether a bare DOCTYPE — no malicious entity — is silently allowed)")
+    print(
+        "--- (3) DOCTYPE with ONLY an external subset reference, no entity, default settings ---"
+    )
+    print(
+        "    (tests whether a bare DOCTYPE — no malicious entity — is silently allowed)"
+    )
     try:
         result = xmltodict.parse(benign_external_dtd_only, dict_constructor=dict)
-        print(f"ALLOWED at default settings -> {result!r} (no entity was declared, so disable_entities' EntityDeclHandler never fires; the external subset itself is not fetched because ExternalEntityRefHandler is unset, matching Python's non-resolution-by-default posture since 3.7.1)")
+        print(
+            f"ALLOWED at default settings -> {result!r} (no entity was declared, so disable_entities' EntityDeclHandler never fires; the external subset itself is not fetched because ExternalEntityRefHandler is unset, matching Python's non-resolution-by-default posture since 3.7.1)"
+        )
     except ValueError as e:
         print(f"Rejected -> {type(e).__name__}: {e}")
 
@@ -227,7 +243,9 @@ def normalize_with_xmltodict(xml_bytes) -> dict:
 def validate_extract_records_at_path_xmltodict(normalized: dict) -> list:
     from api_connector.services.pagination.utils import extract_records_at_path
 
-    print("=== xmltodict: extract_records_at_path validation (real, unmodified function) ===")
+    print(
+        "=== xmltodict: extract_records_at_path validation (real, unmodified function) ==="
+    )
     records = extract_records_at_path(normalized, DATA_ROOT_PATH)
     print(f"Resolved {len(records)} record(s).")
     if records:
@@ -267,7 +285,9 @@ def run_walk_record_check_xmltodict() -> list:
         import json
 
         f.write(json.dumps(flat_maps, indent=2, ensure_ascii=False, default=str))
-    print(f"Full flattened output written to {SPIKE_DIR / 'walk_record_output_xmltodict.txt'}")
+    print(
+        f"Full flattened output written to {SPIKE_DIR / 'walk_record_output_xmltodict.txt'}"
+    )
     return flat_maps
 
 
@@ -290,7 +310,9 @@ def compare_on_sample(path: Path, label: str):
     max_counts_et: dict = {}
     et_trial._collect_max_occurrence_counts(tree, max_counts_et)
     normalized_et = {
-        et_trial._strip_ns(tree.tag): et_trial.element_to_normalized(tree, max_counts_et)
+        et_trial._strip_ns(tree.tag): et_trial.element_to_normalized(
+            tree, max_counts_et
+        )
     }
     et_elapsed = time.perf_counter() - t0
 
@@ -333,9 +355,18 @@ if __name__ == "__main__":
 
     # practical comparison across the additional complex samples
     for sample_file, label in [
-        ("sample_loc_marc.xml", "LOC MARCXML (real, 2nd source, prefixed zs: namespace)"),
-        ("sample_mixed_content.xml", "Synthetic mixed content (text + child elements interleaved)"),
-        ("sample_ns_collision.xml", "Synthetic namespace collision (dc:title vs mods:title)"),
+        (
+            "sample_loc_marc.xml",
+            "LOC MARCXML (real, 2nd source, prefixed zs: namespace)",
+        ),
+        (
+            "sample_mixed_content.xml",
+            "Synthetic mixed content (text + child elements interleaved)",
+        ),
+        (
+            "sample_ns_collision.xml",
+            "Synthetic namespace collision (dc:title vs mods:title)",
+        ),
     ]:
         compare_on_sample(SAMPLES_DIR / sample_file, label)
 

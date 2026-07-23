@@ -102,6 +102,80 @@ class TestEndpointCreate:
 
 
 @pytest.mark.django_db
+class TestEndpointCreateResponseFormatDefaulting:
+    def test_defaults_to_xml_from_detected_format(self, api_client):
+        profile = ConnectionProfileFactory(last_test_detected_format="xml")
+        response = api_client.post(
+            BASE_URL.format(profile_pk=profile.pk),
+            {"name": "EP", "path": "/api", "method": "GET"},
+            format="json",
+        )
+        assert response.status_code == 201
+        assert response.data["response_format"] == "xml"
+
+    def test_defaults_to_json_from_detected_format(self, api_client):
+        profile = ConnectionProfileFactory(last_test_detected_format="json")
+        response = api_client.post(
+            BASE_URL.format(profile_pk=profile.pk),
+            {"name": "EP", "path": "/api", "method": "GET"},
+            format="json",
+        )
+        assert response.status_code == 201
+        assert response.data["response_format"] == "json"
+
+    def test_never_tested_profile_defaults_to_json(self, api_client):
+        profile = ConnectionProfileFactory(last_test_detected_format=None)
+        response = api_client.post(
+            BASE_URL.format(profile_pk=profile.pk),
+            {"name": "EP", "path": "/api", "method": "GET"},
+            format="json",
+        )
+        assert response.status_code == 201
+        assert response.data["response_format"] == "json"
+
+    @pytest.mark.parametrize("detected", ["csv", "html", "plain_text"])
+    def test_unsupported_detected_format_falls_back_to_json(self, api_client, detected):
+        profile = ConnectionProfileFactory(last_test_detected_format=detected)
+        response = api_client.post(
+            BASE_URL.format(profile_pk=profile.pk),
+            {"name": "EP", "path": "/api", "method": "GET"},
+            format="json",
+        )
+        assert response.status_code == 201
+        assert response.data["response_format"] == "json"
+
+    def test_explicit_response_format_wins_in_agreement(self, api_client):
+        profile = ConnectionProfileFactory(last_test_detected_format="xml")
+        response = api_client.post(
+            BASE_URL.format(profile_pk=profile.pk),
+            {
+                "name": "EP",
+                "path": "/api",
+                "method": "GET",
+                "response_format": "xml",
+            },
+            format="json",
+        )
+        assert response.status_code == 201
+        assert response.data["response_format"] == "xml"
+
+    def test_explicit_response_format_wins_in_conflict(self, api_client):
+        profile = ConnectionProfileFactory(last_test_detected_format="xml")
+        response = api_client.post(
+            BASE_URL.format(profile_pk=profile.pk),
+            {
+                "name": "EP",
+                "path": "/api",
+                "method": "GET",
+                "response_format": "json",
+            },
+            format="json",
+        )
+        assert response.status_code == 201
+        assert response.data["response_format"] == "json"
+
+
+@pytest.mark.django_db
 class TestEndpointCrossProfileIsolation:
     def test_cannot_access_other_profiles_endpoint(
         self, api_client, assert_no_credential_leak

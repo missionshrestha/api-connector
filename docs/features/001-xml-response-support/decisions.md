@@ -96,3 +96,19 @@ Rationale: Decision Priority Order — Security is a tie between both candidates
 Reversibility: [REVERSIBLE] — matches DEC-2's own reversibility note; swapping the library later touches only the parsing module's internals.
 Residual risks carried forward (not resolved by this decision, tracked for Phase 2+): cross-namespace same-local-name key collision (DEC-5's already-accepted risk, concretely demonstrated in this phase); the `(parent_tag, child_tag)` heuristic is document-local, not schema-aware — a field repeating exactly once on every record of some future page, with no other same-page evidence of repetition, could resolve as a scalar instead of a list.
 Status: Decided. Origin: Breakdown Engineer · Phase 1 · REVISE — promoted from `spike-findings.md`'s confirmed findings, per breakdown.md's Handoff Note, following Reconciler's independent re-verification (`phases/phase-1/reconciliation.md`).
+
+---
+
+**Implementor tactical decisions — Phase 2 (Origin: Implementor · Phase 2 · 2026-07-23)**
+
+- **P2.B `[REVIEW-GATE]` halt, resolved: proceed as specified.** P2.A (XML parsing module)
+  and P2.C (`Endpoint.response_format` field/migration/serializers/defaulting) were
+  implemented and verified first (48 tests passing). Before touching P2.B-01 — the
+  `~10`-line format branch in `PaginationEngine.paginate()`, the shared parse chokepoint
+  every JSON endpoint in production depends on (ADR-010) — the phase's one designated
+  `[REVIEW-GATE]` subphase halted per Rule 4/Step 2, and `implementation.md §11` was
+  written recording the halt (trigger, finding, options, recommendation). Human confirmed
+  "proceed now" — the breakdown's specification as written, with the existing JSON-path
+  suite run afterward to prove zero regression before finalizing the phase. See
+  `phases/phase-2/implementation.md` for the full halt record and post-resolution
+  verification.

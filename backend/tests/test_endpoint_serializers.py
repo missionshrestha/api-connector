@@ -121,6 +121,68 @@ class TestEndpointCreateSerializerValidation:
         assert not s.is_valid()
         assert "data_root_path" in s.errors
 
+    def test_explicit_response_format_xml_valid(self):
+        s = EndpointCreateSerializer(
+            data={
+                "name": "Test",
+                "path": "/api",
+                "method": "GET",
+                "response_format": "xml",
+            }
+        )
+        assert s.is_valid(), s.errors
+
+    def test_invalid_response_format_rejected(self):
+        s = EndpointCreateSerializer(
+            data={
+                "name": "Test",
+                "path": "/api",
+                "method": "GET",
+                "response_format": "yaml",
+            }
+        )
+        assert not s.is_valid()
+        assert "response_format" in s.errors
+
+    def test_omitted_response_format_valid(self):
+        """Defaulting decision is P2.C-04's job — the serializer itself just
+        allows omission."""
+        s = EndpointCreateSerializer(
+            data={"name": "Test", "path": "/api", "method": "GET"}
+        )
+        assert s.is_valid(), s.errors
+        assert "response_format" not in s.validated_data
+
+
+@pytest.mark.django_db
+class TestEndpointResponseFormatRoundTrip:
+    def test_explicit_xml_persists_and_round_trips(self):
+        profile = ConnectionProfileFactory()
+        create_s = EndpointCreateSerializer(
+            data={
+                "name": "XML Endpoint",
+                "path": "/api",
+                "method": "GET",
+                "response_format": "xml",
+            }
+        )
+        assert create_s.is_valid(), create_s.errors
+        endpoint = create_s.save(connection_profile=profile)
+        assert endpoint.response_format == "xml"
+
+        read_s = EndpointReadSerializer(instance=endpoint)
+        assert read_s.data["response_format"] == "xml"
+
+    def test_patch_updates_response_format(self):
+        profile = ConnectionProfileFactory()
+        endpoint = EndpointFactory(connection_profile=profile, response_format="json")
+        update_s = EndpointUpdateSerializer(
+            instance=endpoint, data={"response_format": "xml"}, partial=True
+        )
+        assert update_s.is_valid(), update_s.errors
+        updated = update_s.save()
+        assert updated.response_format == "xml"
+
 
 # ── EndpointReadSerializer computed fields ────────────────────────────────────
 

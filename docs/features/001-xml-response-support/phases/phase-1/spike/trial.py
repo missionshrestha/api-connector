@@ -119,7 +119,9 @@ def _strip_ns(tag: str) -> str:
     return _CLARK_NS_RE.sub("", tag)
 
 
-def _collect_max_occurrence_counts(elem, max_counts: dict[tuple[str, str], int]) -> None:
+def _collect_max_occurrence_counts(
+    elem, max_counts: dict[tuple[str, str], int]
+) -> None:
     """Pass 1: for every (parent_tag, child_tag) pair, track the maximum
     number of times child_tag occurs under a SINGLE instance of parent_tag,
     anywhere in the document (not a flat total across all instances)."""
@@ -207,7 +209,9 @@ def trial_normalize():
     max_counts: dict[tuple[str, str], int] = {}
     _collect_max_occurrence_counts(root, max_counts)
     repeatable_pairs = {pair for pair, count in max_counts.items() if count > 1}
-    print(f"Repeatable (parent, child) pairs found (max count > 1 anywhere): {sorted(repeatable_pairs)}")
+    print(
+        f"Repeatable (parent, child) pairs found (max count > 1 anywhere): {sorted(repeatable_pairs)}"
+    )
 
     # root itself is never wrapped in a list — a document has exactly one root.
     normalized = {_strip_ns(root.tag): element_to_normalized(root, max_counts)}
@@ -231,7 +235,9 @@ def trial_normalize():
 def validate_extract_records_at_path(normalized: dict) -> list:
     from api_connector.services.pagination.utils import extract_records_at_path
 
-    print("=== P1.B-02: extract_records_at_path validation (real, unmodified function) ===")
+    print(
+        "=== P1.B-02: extract_records_at_path validation (real, unmodified function) ==="
+    )
     print(f"data_root_path = {DATA_ROOT_PATH!r}")
 
     records = extract_records_at_path(normalized, DATA_ROOT_PATH)
@@ -283,7 +289,9 @@ def run_walk_record_check() -> dict:
     records = extract_records_at_path(normalized, DATA_ROOT_PATH)
     assert len(records) == 3, f"expected 3 records, got {len(records)}"
 
-    print("=== P1.B-03: SchemaInferenceEngine._walk_record validation (real, unmodified method) ===")
+    print(
+        "=== P1.B-03: SchemaInferenceEngine._walk_record validation (real, unmodified method) ==="
+    )
     engine = SchemaInferenceEngine()
     flat_maps = []
     for i, record in enumerate(records):
@@ -299,7 +307,9 @@ def run_walk_record_check() -> dict:
     all_keys = set()
     for flat in flat_maps:
         all_keys.update(flat.keys())
-    print(f"\nUnion of all flattened keys across {len(flat_maps)} records: {len(all_keys)}")
+    print(
+        f"\nUnion of all flattened keys across {len(flat_maps)} records: {len(all_keys)}"
+    )
     print("No namespace prefixes expected in any key (spot-check manually above).")
 
     with open(SPIKE_DIR / "walk_record_output.txt", "w") as f:
@@ -337,5 +347,5 @@ if __name__ == "__main__":
     print(f"Full output written to {SPIKE_DIR / 'raw_output.txt'}")
     print(
         "NOTE: P1.B-03 (_walk_record) requires Django context — run separately via "
-        "`python manage.py shell -c \"...\"` (see this file's P1.B-03 docstring)."
+        '`python manage.py shell -c "..."` (see this file\'s P1.B-03 docstring).'
     )

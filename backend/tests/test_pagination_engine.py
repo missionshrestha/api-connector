@@ -6,6 +6,7 @@ All HTTP calls mocked via pytest-httpx. DB needed for Endpoint model.
 
 import pytest
 
+from api_connector.models import ResponseFormat
 from api_connector.services.auth.handlers.none_handler import NoneAuthHandler
 from api_connector.services.pagination.engine import (
     PaginationEngine,
@@ -28,6 +29,15 @@ from tests.factories import (
 
 SAFETY = SafetyConfig(max_pages=100, max_records=10000)
 OL_PARAMS = {"offset_param": "offset", "limit_param": "limit", "page_size": 10}
+
+
+def _xml_page(ids):
+    """Build a minimal XML page body: <data><item><id>...</id></item>...</data>.
+    Root tag becomes the top-level dict key (xmltodict has exactly one root),
+    so data_root_path="data.item" resolves it, mirroring the JSON tests'
+    {"data": [...]} shape."""
+    items = "".join(f"<item><id>{i}</id></item>" for i in ids)
+    return f"<data>{items}</data>".encode()
 
 
 def collect_pages(engine, **kwargs):
@@ -203,6 +213,126 @@ class TestPaginationEngineOffsetLimit:
         pages = [records for records, _ in raw_results]
 
         assert pages == [[{"id": 1}]]
+
+
+@pytest.mark.django_db
+class TestPaginationEngineXml:
+    """P2.B-01: format-aware parse branch. Zero regression on the JSON path
+    (above) is the actual bar; these confirm the XML path reaches parity."""
+
+    def test_happy_path_same_shape_as_json(self, httpx_mock):
+        profile = ConnectionProfileFactory(base_url="https://api.example.com")
+        endpoint = EndpointFactory(
+            connection_profile=profile,
+            path="/items",
+            data_root_path="data.item",
+            response_format=ResponseFormat.XML,
+        )
+        httpx_mock.add_response(content=_xml_page([1, 2]), status_code=200)
+
+        engine = PaginationEngine()
+        raw_results = list(
+            engine.paginate(
+                endpoint=endpoint,
+                auth_handler=NoneAuthHandler(),
+                credentials={},
+                strategy=NoPaginationStrategy(),
+                safety=SAFETY,
+            )
+        )
+        pages = [records for records, _ in raw_results]
+
+        assert len(pages) == 1
+        assert len(pages[0]) == 2
+        assert pages[0][0]["id"] == "1"
+
+    def test_malformed_xml_raises_format_aware_error(self, httpx_mock):
+        profile = ConnectionProfileFactory(base_url="https://api.example.com")
+        endpoint = EndpointFactory(
+            connection_profile=profile,
+            path="/items",
+            response_format=ResponseFormat.XML,
+        )
+        httpx_mock.add_response(
+            content=b"<response><data><item></response>", status_code=200
+        )
+
+        engine = PaginationEngine()
+        with pytest.raises(PaginationEngineError) as exc_info:
+            list(
+                engine.paginate(
+                    endpoint=endpoint,
+                    auth_handler=NoneAuthHandler(),
+                    credentials={},
+                    strategy=NoPaginationStrategy(),
+                    safety=SAFETY,
+                )
+            )
+        assert "xml" in str(exc_info.value)
+        assert "non-JSON" not in str(exc_info.value)
+
+    def test_row_limit_stops_early(self, httpx_mock):
+        """Mirrors the JSON row_limit test — same early-exit generator
+        contract, XML-configured endpoint."""
+        profile = ConnectionProfileFactory(base_url="https://api.example.com")
+        endpoint = EndpointFactory(
+            connection_profile=profile,
+            path="/items",
+            data_root_path="data.item",
+            response_format=ResponseFormat.XML,
+        )
+        strategy = OffsetLimitStrategy(OL_PARAMS)
+
+        for _ in range(2):
+            httpx_mock.add_response(content=_xml_page(range(10)), status_code=200)
+
+        engine = PaginationEngine()
+        raw_results = list(
+            engine.paginate(
+                endpoint=endpoint,
+                auth_handler=NoneAuthHandler(),
+                credentials={},
+                strategy=strategy,
+                safety=SAFETY,
+                row_limit=15,
+            )
+        )
+        pages = [records for records, _ in raw_results]
+
+        total = sum(len(p) for p in pages)
+        assert total <= 15
+        assert len(httpx_mock.get_requests()) == 2
+
+    def test_max_pages_early_stop(self, httpx_mock):
+        """Mirrors schema inference's max_pages=3 cap — generator's for/next
+        early-stop behavior against an XML-configured endpoint."""
+        profile = ConnectionProfileFactory(base_url="https://api.example.com")
+        endpoint = EndpointFactory(
+            connection_profile=profile,
+            path="/items",
+            data_root_path="data.item",
+            response_format=ResponseFormat.XML,
+        )
+        strategy = OffsetLimitStrategy(OL_PARAMS)
+        safety = SafetyConfig(max_pages=3, max_records=10000)
+
+        for _ in range(3):
+            httpx_mock.add_response(content=_xml_page(range(10)), status_code=200)
+
+        engine = PaginationEngine()
+        raw_results = list(
+            engine.paginate(
+                endpoint=endpoint,
+                auth_handler=NoneAuthHandler(),
+                credentials={},
+                strategy=strategy,
+                safety=safety,
+            )
+        )
+        pages = [records for records, _ in raw_results]
+
+        assert len(pages) == 3
+        assert len(httpx_mock.get_requests()) == 3
 
 
 # ── detect_data_root unit tests ───────────────────────────────────────────────

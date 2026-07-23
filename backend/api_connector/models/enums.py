@@ -43,6 +43,11 @@ class HTTPMethod(models.TextChoices):
     POST = "POST", "POST"
 
 
+class ResponseFormat(models.TextChoices):
+    JSON = "json", "JSON"
+    XML = "xml", "XML"
+
+
 class TokenType(models.TextChoices):
     OAUTH_CC = "oauth_cc", "OAuth Client Credentials"
     OAUTH_AC = "oauth_ac", "OAuth Authorization Code"

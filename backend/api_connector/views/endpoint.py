@@ -24,6 +24,7 @@ from api_connector.models import (
     PaginationStrategy,
     SchemaField,
 )
+from api_connector.models.enums import ResponseFormat
 from api_connector.serializers.endpoint import (
     EndpointCreateSerializer,
     EndpointReadSerializer,
@@ -102,15 +103,36 @@ class EndpointViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         profile_pk = self.kwargs["profile_pk"]
+        connection_profile = get_object_or_404(ConnectionProfile, pk=profile_pk)
         write_serializer = EndpointCreateSerializer(data=request.data)
         write_serializer.is_valid(raise_exception=True)
-        endpoint = write_serializer.save(connection_profile_id=profile_pk)
+
+        if "response_format" not in request.data:
+            # Default from the connection test's already-detected format
+            # (DEC-4/FR1); only "json"/"xml" are valid defaults, matching
+            # this feature's supported formats — anything else (a
+            # never-tested profile, or a detected "csv"/"html"/"plain_text")
+            # falls back to the model's own "json" default.
+            default_format = (
+                connection_profile.last_test_detected_format
+                if connection_profile.last_test_detected_format in ResponseFormat.values
+                else ResponseFormat.JSON
+            )
+            endpoint = write_serializer.save(
+                connection_profile_id=profile_pk, response_format=default_format
+            )
+        else:
+            # Already-validated user-supplied value wins regardless of
+            # last_test_detected_format.
+            endpoint = write_serializer.save(connection_profile_id=profile_pk)
+
         read_serializer = EndpointReadSerializer(endpoint)
         logger.info(
-            "Endpoint created: profile=%s endpoint=%s name='%s'",
+            "Endpoint created: profile=%s endpoint=%s name='%s' response_format=%s",
             profile_pk,
             endpoint.pk,
             endpoint.name,
+            endpoint.response_format,
         )
         return Response(read_serializer.data, status=status.HTTP_201_CREATED)
 

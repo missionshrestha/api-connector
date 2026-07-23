@@ -1,7 +1,7 @@
 # backend/api_connector/models/endpoint.py
 from django.db import models
 
-from api_connector.models.enums import HTTPMethod
+from api_connector.models.enums import HTTPMethod, ResponseFormat
 
 
 class Endpoint(models.Model):
@@ -38,6 +38,11 @@ class Endpoint(models.Model):
     request_body = models.JSONField(null=True, blank=True)
     # [{"name": str, "value": str}]
     endpoint_headers = models.JSONField(default=list, blank=True)
+    response_format = models.CharField(
+        max_length=10,
+        choices=ResponseFormat.choices,
+        default=ResponseFormat.JSON,
+    )
     # Dot-notation path to the array of records, e.g. "data.items"
     data_root_path = models.CharField(max_length=500, null=True, blank=True)
     # Dot-notation path to total record count field
