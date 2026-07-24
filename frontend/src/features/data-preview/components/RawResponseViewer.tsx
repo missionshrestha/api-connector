@@ -1,9 +1,11 @@
 // frontend/src/features/data-preview/components/RawResponseViewer.tsx
 import { useState } from "react";
 import { Button } from "@/shared/components/ui/button";
+import type { ResponseFormat } from "@/shared/types";
 
 interface RawResponseViewerProps {
-  body: string; // JSON string, may be truncated at 50KB
+  body: string; // JSON or XML string, may be truncated at 50KB
+  format?: ResponseFormat | undefined; // defaults to "json", preserving prior behavior
 }
 
 /**
@@ -42,9 +44,46 @@ function highlightJson(raw: string): string {
     );
 }
 
+/**
+ * Minimal XML syntax highlighting using inline <span> elements.
+ * Structurally mirrors highlightJson: escape first, color tokens second.
+ *
+ * SECURITY: HTML entities MUST be escaped before syntax highlighting, for the
+ * same reason as highlightJson — XML text/attribute content is externally
+ * sourced and may contain "</span><script>..." as literal text.
+ */
+function highlightXml(raw: string): string {
+  // Step 1: Escape HTML entities first (XSS prevention) — identical to highlightJson
+  const escaped = raw
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  // Step 2: Apply token coloring (safe now that < > are escaped). Only tags
+  // starting with a letter after &lt; or &lt;/ are matched, so XML
+  // declarations/comments/CDATA fall through unhighlighted (still escaped).
+  return escaped.replace(/&lt;\/?[A-Za-z_][\s\S]*?&gt;/g, (tag) => {
+    // Attribute name="value" pairs — processed on the raw tag text first,
+    // before any <span> is injected, so this pass can't re-match markup
+    // injected by the tag-name pass below.
+    let colored = tag.replace(
+      /(\s)([A-Za-z_][\w.:-]*)(=)"([^"]*)"/g,
+      (_m, ws, name, eq, val) =>
+        `${ws}<span class="text-blue-600 dark:text-blue-400">${name}</span>${eq}"<span class="text-green-600 dark:text-green-400">${val}</span>"`,
+    );
+    // Element tag name — anchored to the start of the tag, so it can only
+    // match the real tag name, never text inside the attribute spans above.
+    colored = colored.replace(
+      /^(&lt;\/?)([A-Za-z_][\w.:-]*)/,
+      '$1<span class="text-blue-600 dark:text-blue-400">$2</span>',
+    );
+    return colored;
+  });
+}
+
 type ViewerHeight = "compact" | "expanded";
 
-export function RawResponseViewer({ body }: RawResponseViewerProps) {
+export function RawResponseViewer({ body, format = "json" }: RawResponseViewerProps) {
   const [copied, setCopied] = useState(false);
   const [height, setHeight] = useState<ViewerHeight>("compact");
 
@@ -58,7 +97,7 @@ export function RawResponseViewer({ body }: RawResponseViewerProps) {
     }
   }
 
-  const highlighted = highlightJson(body);
+  const highlighted = format === "xml" ? highlightXml(body) : highlightJson(body);
   const isTruncated = body.length >= 50_000;
 
   return (

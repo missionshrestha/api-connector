@@ -139,3 +139,113 @@ Status: Decided. Origin: Breakdown Engineer · Phase 1 · REVISE — promoted fr
   `LinkHeaderStrategy` for JSON endpoints exactly as much as XML ones — predates this
   feature, not downstream of XML normalization (DEC-1), not fixed here per Rule 6.
   Flagged in `phases/phase-3/implementation.md §9` for a separate follow-up.
+
+---
+
+**Implementor tactical decisions — Phase 4 (Origin: Implementor · Phase 4 · 2026-07-23)**
+
+- **`highlightXml` uses a per-tag callback with attribute-pass-before-tag-name-pass,
+  not `highlightJson`'s sequential whole-string `.replace()` chain.** While implementing
+  P4.A-03, found a real, pre-existing bug in the untouched `highlightJson`: its final
+  number-coloring regex re-matches the `"600"` digit sequences inside the
+  `class="text-blue-600..."` markup its own earlier replace steps just injected,
+  producing malformed nested-span HTML for most real JSON bodies with more than one
+  colored token. Not fixed (out of scope, `highlightJson` required to stay
+  byte-for-byte unchanged this phase — Rule 2/6); flagged as a follow-up in
+  `phases/phase-4/implementation.md §4/§9`. `highlightXml` was deliberately designed
+  to avoid the same class of bug from the start (isolated per-tag processing can't
+  re-scan its own injected markup), weighed against Correctness/Maintainability —
+  not a meaningfully more complex design than the sequential approach, so no real
+  trade-off.
+- **P4.B `[REVIEW-GATE]` + OD-1 halt, unresolved as of this record.** P4.A (UI
+  Surfacing — all 4 tasks) was implemented and verified first (typecheck/lint/test
+  all pass, 20 tests including new XSS-regression coverage for `RawResponseViewer`,
+  0 regressions). P4.B requires driving the running app's UI against the live DNB
+  SRU API — browser-automation tooling was not available in this session, and OD-1
+  (which target/pagination-strategy P4.B uses) was still formally unconfirmed by the
+  human. Per Rule 4/Step 2, halted here rather than proceeding; recorded in
+  `phases/phase-4/implementation.md §11` (trigger, 3 options, recommendation: confirm
+  OD-1 as written — DNB SRU + `CursorStrategy` — then either the human runs P4.B-01
+  directly or hands its recorded results back for P4.B-02's documentation writeup).
+
+- **P4.B halt resolved: OD-1 confirmed as recommended (DNB SRU + `CursorStrategy`);
+  P4.B-01 executed directly rather than waiting on a UI walkthrough.** The human's
+  instruction was "research yourself and do what's recommended," plus an explicit
+  request for a new, separate `docs/e2e-testing-guide-xml.md` covering "various
+  cases" (not the single-section addendum the breakdown originally specified).
+  Still lacking browser-automation tooling, P4.B-01 was executed via direct REST
+  calls against the running app — the same backend code paths (`ConnectionTestService`,
+  `PaginationEngine`, `SchemaInferenceEngine`, `DataPreviewService`) a UI action
+  would trigger — against the real, live `services.dnb.de/sru/dnb`. This is recorded
+  as a `[local]` tactical substitution (Rule 6) in `phases/phase-4/implementation.md
+  §4/§5`, not a scope change: P4.A's frontend-only pieces (the Select, `highlightXml`)
+  were separately verified — code-traced in P4.A, and `highlightXml` additionally
+  re-run directly against the real captured DNB response body (not just synthetic
+  test fixtures).
+- **New finding, discovered live, documented not fixed**: DNB's SRU endpoint
+  rejects *any* character appended after its fixed path `/sru/dnb` — including a
+  bare trailing slash — returning a well-formed but silently-erroring
+  `<diagnostics>` XML document (`HTTP 200`) rather than a transport failure. This
+  collides with this app's pre-existing, feature-agnostic `Endpoint.path`
+  requirement (must be non-empty, must start with `/`, always appended to
+  `base_url`), producing a misleading `422 API_CONN_051` ("verify data_root_path")
+  when the real cause is the base-URL/path split. Reproduced both via raw `curl`
+  and through the app itself (`Endpoint.path="/"` under a profile whose `base_url`
+  is the exact SRU endpoint). Worked around, not fixed, by splitting
+  `base_url=https://services.dnb.de` / `Endpoint.path=/sru/dnb` instead — the only
+  configuration that produces working requests, using only standard supported
+  fields (no code changes, no hack). Not fixed in code this phase — unrelated to
+  XML specifically (affects any single-fixed-endpoint API, JSON or XML), out of
+  scope per Rule 2/6. Documented as its own case (Case 2) in
+  `docs/e2e-testing-guide-xml.md`, and flagged as a follow-up candidate in
+  `phases/phase-4/implementation.md §9`.
+- **`docs/e2e-testing-guide-xml.md` created as a new, standalone file**, not a new
+  section inside `docs/e2e-testing-guide.md` — directly superseding the breakdown's
+  originally-specified P4.B-02 delivery mechanism, per the human's explicit request.
+  A one-line pointer was added to the existing guide for discoverability (Rule 2's
+  smallest-surface principle, balanced against total invisibility being the wrong
+  trade-off). See `phases/phase-4/implementation.md §4` for the full reasoning
+  against the Decision Priority Order.
+- **Extended to 6 real XML APIs (one section each), following a second human
+  request** — *"I also want e2e-testing-guide-xml.md with various cases, urls,
+  similar to that of json, search various xml based api responses"* — read as
+  wanting `e2e-testing-guide.md`'s own breadth (one section per real API,
+  different auth/pagination combinations) applied to XML. Researched and
+  validated 5 more real, live, unauthenticated XML sources beyond DNB SRU: World
+  Bank (Page/Size), NCBI E-utilities/PubMed `esearch` (Offset/Limit), USGS
+  Earthquakes (Atom/GeoRSS, No Pagination), BBC News RSS (RSS 2.0 + CDATA, No
+  Pagination), and a public NOAA S3 bucket (Cursor via opaque continuation-token)
+  — chosen specifically to cover every pagination strategy meaningful against a
+  real XML source and several genuinely different XML shapes, rather than 5 more
+  SRU-shaped near-duplicates of DNB. Each was researched via raw HTTP first
+  (confirm exact request/response shape), then configured and run through the
+  app's own REST API (Rule 1 — verify, don't assert), same as DNB.
+- **New finding, discovered live (World Bank), documented not fixed**: XML
+  pagination/count metadata expressed as a **root-level XML attribute**
+  (`<wb:countries page="1" pages="59" total="295">`) cannot be referenced by
+  `data_root_path`/`record_count_path`/`total_pages_path`/`cursor_response_path`/
+  `next_url_response_path` — their shared dot-notation validator
+  (`^[\w]+(\.[\w]+)*$`, `serializers/endpoint.py:20`,
+  `serializers/pagination_config.py:19`) rejects any `@`-prefixed segment, even
+  though `xml_parser.py`'s own normalization convention produces exactly that
+  `@attr` key shape. Reproduced directly: `record_count_path="countries.@total"`
+  → `400`, "must use dot-notation... No double dots, leading/trailing dots, or
+  special characters." Record-level attribute fields (inside individual records,
+  e.g. `@id` on each `<country>`) are unaffected — only root-level
+  pagination/count-control paths hit this. Worked around, not fixed, by omitting
+  `total_pages_path` and relying on `PageSizeStrategy`'s existing, documented
+  record-count fallback (confirmed working). Not fixed in code this phase — a
+  pre-existing, format-agnostic validator constraint, out of scope per Rule 2/6.
+  Documented in `docs/e2e-testing-guide-xml.md` §3.2/§8.
+- **New finding, discovered live (NCBI), documented not fixed**: `data_root_path`
+  resolving to a list of **scalar values** (bare `<Id>42493811</Id>`-style
+  elements, not objects) makes `SchemaInferenceEngine._walk_record` produce
+  **zero fields**, silently, with a normal `HTTP 200` — not an error. `Data
+  Preview` then fails with a `422` ("no fields marked for inclusion") that gives
+  no indication the real cause is upstream, at inference time. Distinct from the
+  DNB base-URL/path gotcha (that one is "no records found"; this one is "records
+  found, but nothing to infer from them"). Format-agnostic — an equivalent JSON
+  endpoint with `data_root_path` resolving to `["1", "2", "3"]` would hit the
+  identical gap, since `_walk_record` operates on the same normalized structure
+  regardless of source format. Not fixed in code this phase — pre-existing,
+  out of scope per Rule 2/6. Documented in `docs/e2e-testing-guide-xml.md` §4.4/§8.

@@ -15,7 +15,8 @@ import {
 } from "@/shared/components/ui/select";
 import { Separator } from "@/shared/components/ui/separator";
 import { Textarea } from "@/shared/components/ui/textarea";
-import type { APIError } from "@/shared/types";
+import type { APIError, ResponseFormat } from "@/shared/types";
+import { useProfile } from "@/features/connection-profile/hooks";
 import { endpointSchema, type EndpointFormValues } from "../schemas/endpointSchema";
 import type { PaginationConfigFormValues } from "../schemas/paginationConfigSchema";
 import {
@@ -59,6 +60,7 @@ export default function EndpointFormPage() {
   );
   const { data: paginationConfig, isLoading: isLoadingPagination } =
     usePaginationConfig(profileId, endpointId);
+  const { data: profile } = useProfile(profileId);
 
   const createEndpoint = useCreateEndpoint(profileId);
   const updateEndpoint = useUpdateEndpoint(profileId);
@@ -85,7 +87,7 @@ export default function EndpointFormPage() {
     handleSubmit,
     reset,
     setValue,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, dirtyFields },
   } = useForm<EndpointFormValues>({
     resolver: zodResolver(endpointSchema),
     defaultValues: {
@@ -96,6 +98,7 @@ export default function EndpointFormPage() {
       path_variables: {},
       request_body: null,
       endpoint_headers: [],
+      response_format: "json",
       data_root_path: null,
       record_count_path: null,
     },
@@ -112,15 +115,34 @@ export default function EndpointFormPage() {
         path_variables: endpoint.path_variables,
         request_body: endpoint.request_body,
         endpoint_headers: endpoint.endpoint_headers,
+        response_format: endpoint.response_format,
         data_root_path: endpoint.data_root_path,
         record_count_path: endpoint.record_count_path,
       });
     }
   }, [endpoint, isEditMode, reset]);
 
+  // Create-mode default: mirror the server-side fallback (views/endpoint.py:116-120)
+  // so the Select visibly shows the soon-to-be-actual default before submit. Only
+  // exact "json"/"xml" values count; anything else (including a never-tested
+  // profile's null) falls back to "json". Never overrides a value the user already
+  // touched.
+  useEffect(() => {
+    if (
+      !isEditMode &&
+      profile &&
+      !dirtyFields.response_format
+    ) {
+      setValue(
+        "response_format",
+        profile.last_test_detected_format === "xml" ? "xml" : "json",
+      );
+    }
+  }, [profile, isEditMode, dirtyFields.response_format, setValue]);
 
   const watchedMethod = useWatch({ control, name: "method" });
   const watchedPath = useWatch({ control, name: "path" });
+  const watchedResponseFormat = useWatch({ control, name: "response_format" });
 
   // Path variables detected from the path field
   const detectedVarNames =
@@ -132,6 +154,10 @@ export default function EndpointFormPage() {
     if (newMethod === "GET") {
       setValue("request_body", null);
     }
+  }
+
+  function handleResponseFormatChange(newFormat: string) {
+    setValue("response_format", newFormat as ResponseFormat, { shouldDirty: true });
   }
 
   async function onSubmit(data: EndpointFormValues) {
@@ -315,6 +341,22 @@ export default function EndpointFormPage() {
               )}
             />
           )}
+
+          <div className="space-y-1">
+            <Label>Response Format</Label>
+            <Select
+              value={watchedResponseFormat}
+              onValueChange={handleResponseFormatChange}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="json">JSON</SelectItem>
+                <SelectItem value="xml">XML</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           <div className="space-y-2">
             <Label>Data Root Path</Label>

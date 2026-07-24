@@ -194,7 +194,10 @@ export default function DataPreviewPage() {
       {!preview.isPending && preview.data && (
         <>
           {showRawResponse ? (
-            <RawResponseViewer body={preview.data.raw_response_body} />
+            <RawResponseViewer
+              body={preview.data.raw_response_body}
+              format={endpoint?.response_format}
+            />
           ) : (
             <DataPreviewTable
               result={preview.data}

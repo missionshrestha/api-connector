@@ -1,6 +1,6 @@
 // frontend/src/features/endpoint/api/endpointApi.ts
 import { apiClient } from "@/lib";
-import type { Endpoint } from "@/shared/types";
+import type { Endpoint, ResponseFormat } from "@/shared/types";
 
 export interface EndpointCreateRequest {
   name: string;
@@ -10,6 +10,7 @@ export interface EndpointCreateRequest {
   path_variables?: Record<string, string>;
   request_body?: Record<string, unknown> | null;
   endpoint_headers?: Array<{ name: string; value: string }>;
+  response_format?: ResponseFormat;
   data_root_path?: string | null;
   record_count_path?: string | null;
 }

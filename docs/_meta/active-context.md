@@ -27,11 +27,11 @@ This pipeline is designed around **one feature in flight at a time**. If you eve
 | 1 | Reconciled — 🟡 YELLOW, see DEV-1/2/3 | 2026-07-23 |
 | 2 | Reconciled — 🟢 GREEN | 2026-07-23 |
 | 3 | Reconciled — 🟡 YELLOW, see DEV-1 | 2026-07-23 |
-| 4 | Not started | — |
+| 4 | Ready for review (P4.A + P4.B both complete; OD-1 resolved as recommended) | 2026-07-24 |
 
 ## Next Action
 
-Human: 9 files are already staged (`engine.py`, `data_preview.py`, the 3 phase-3 test files, `decisions.md`, an earlier `active-context.md`, `phase-3/breakdown.md`, `phase-3/implementation.md`) — a bare `git commit` would commit only those. First run `git add docs/_meta/active-context.md docs/project-detail.md docs/features/001-xml-response-support/phases/phase-3/reconciliation.md` to pick up this Reconciler's memory-bank updates and its report, then review with `git diff --cached` and commit. After that: Breakdown Engineer — Phase 4. See `phase-3/reconciliation.md` (475 tests passing, independently re-run and confirmed, 0 regressions; DEV-1: pre-existing, format-agnostic `_next_url` query-string-drop bug, carried forward for Phase 4 to consider before its e2e validation runs).
+Human: review `docs/features/001-xml-response-support/phases/phase-4/implementation.md` (full record, §11 has the resolved halt, twice — DNB first, then expanded on request) — both P4.A (UI Surfacing) and P4.B (End-to-End Validation) are done. P4.B was executed via direct backend API calls, not a browser walkthrough (no browser-automation tooling available), against **6 real, live, independent XML APIs** (`docs/e2e-testing-guide-xml.md`, one section each, mirroring `e2e-testing-guide.md`'s structure). It surfaced 3 genuine, pre-existing, format-agnostic app characteristics — a base-URL/path gotcha for single-fixed-endpoint APIs, a dot-notation validator that can't express root-level XML-attribute pagination metadata, and a silent zero-field result when `data_root_path` resolves to scalar records — none fixed this phase, all documented with exact reproduction steps in the new guide's §8 and `implementation.md` §9. All work is an uncommitted delta against baseline `78d2d79`. This is the final phase of `001-xml-response-support` — once reviewed/committed and reconciled, re-run `requirement.md` §5's SC1-SC8 one more time against the fully completed feature (implementation.md §8 AC6 has a first pass already).
 
 ---
 

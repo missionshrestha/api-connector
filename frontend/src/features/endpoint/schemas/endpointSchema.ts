@@ -14,6 +14,7 @@ export const endpointSchema = z.object({
   endpoint_headers: z.array(
     z.object({ name: z.string().min(1, "Name required"), value: z.string() })
   ),
+  response_format: z.enum(["json", "xml"]),
   data_root_path: z.string().max(500).nullable()
     .refine(
       (v) => !v || /^[\w]+(\.[\w]+)*$/.test(v),

@@ -33,6 +33,8 @@ export type ArrayHandling = "expand" | "retain";
 
 export type HTTPMethod = "GET" | "POST";
 
+export type ResponseFormat = "json" | "xml";
+
 // ── Phase 2 read shape ────────────────────────────────────────────────────────
 // credentials_summary is returned by Phase 2 serializer; never the raw credentials.
 export interface CredentialsSummary {
@@ -70,6 +72,7 @@ export interface Endpoint {
   path_variables: Record<string, string>;
   request_body: Record<string, unknown> | null;
   endpoint_headers: Array<{ name: string; value: string }>;
+  response_format: ResponseFormat;
   data_root_path: string | null;
   record_count_path: string | null;
   detected_path_variables: string[];       // computed at read time

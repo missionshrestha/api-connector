@@ -2,6 +2,8 @@
 
 Complete walkthrough for creating and testing connection profiles across every authentication type, endpoint configuration variant, and pagination strategy supported by the app.
 
+> **XML responses** (`001-xml-response-support`): see the companion guide, [`e2e-testing-guide-xml.md`](./e2e-testing-guide-xml.md) — a real, live SRU/XML walkthrough plus several discovered configuration cases, kept separate rather than folded in here.
+
 ---
 
 ## How to Read This Guide

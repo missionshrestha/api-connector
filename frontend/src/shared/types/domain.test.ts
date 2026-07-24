@@ -1,6 +1,6 @@
 // frontend/src/shared/types/domain.test.ts
 import { describe, it, expectTypeOf } from "vitest";
-import type { APIError, ConnectionProfile } from "@/shared/types";
+import type { APIError, ConnectionProfile, Endpoint } from "@/shared/types";
 import type { AuthType } from "@/shared/types";
 import { ErrorCode } from "@/lib/errors";
 
@@ -46,5 +46,9 @@ describe("TypeScript domain types", () => {
       detail: {},
     };
     expectTypeOf(err.detail).not.toBeNull();
+  });
+
+  it("Endpoint.response_format is the literal union 'json' | 'xml' (never just string)", () => {
+    expectTypeOf<Endpoint["response_format"]>().toEqualTypeOf<"json" | "xml">();
   });
 });
